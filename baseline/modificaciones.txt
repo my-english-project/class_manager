@@ -1,0 +1,87 @@
+----------------------------------------------------------------------
+Modificación 1 (2026-04-21)
+----------------------------------------------------------------------
+- Muestra en Home los grupos en orden alfabético seleccionando de inicio al primero de este orden.
+- Elimina de la esquina superior derecha el nombre del grupo, en su lugar, coloca en cada vista, al lado del título de la misma, las siglas del grupo, ejemplo Asistencia IER8A, resaltando un poco las siglas del grupo.
+- En Home, debajo de la lista de grupos, pon la leyenda Estadísticas IER8A o del grupo seleccionado.
+- En la vista Alumnos, alinea el botón "Agregar alumno" a la derecha, el texto del número de alumnos, colócalo a la izquierda de este botón.
+- En la vista Alumnos, agrega una acción para poder editar los datos del alumno, crea un modal para esta acción, el orden de los botones de acción es Editar y luego Eliminar.
+- En la vista Asistencia separa de igual manera como en las vistas Portafolio, Tareas y Resumen, en tres parciales, en la vista responsiva de celular, oculta la columna del número de lista, deja fija la columna del nombre del alumno y permite que las columnas de las asistencias se desplacen horizontalmente por debajo de la columna del nombre sin que se empalmen, puedes ver el comportamiento erroneo que tiene actualmente en la imagen baseline/asistencia_celular.png.
+- Revisa bien el comportanmiento responsivo, ya que al redimendionar la pantalla, las tablas no se muestran completas, observa el comportamiento en baseline/responsivo_erroneo.png, puedes colapsar el menú de manera similar al celular en la parte de abajo.
+- Revisa el comportamiento del menú inferior en la vista de celular, ya que la opción más saca al usuario del sistema, los botones deben de tener el mismo orden del menú lateral.
+- En la vista de celular y responsiva, cuida el desplazamiento de las columnas de valores, ya que al desplazarse, se traslapan al nombre, el comportamiento en estos casos es, ocultar el número de lista, fijar el nombre del alumno y permitr el desplazamiento horizontal de las columnas por debajo del nombre para evitar el traslape, algo parecido a lo que se ve en la imagen baseline/responsivo_erroneo.png.
+- En la vista Asistencia, permite modificar la fecha una vez creada su corresponiente columna.
+- En las vistas Tareas y Portafolio, permite modificar los datos de la Tarea o actividad en portafolio, para evitar que el nombre sobrepase el ancho de la columna, utiliza un tooltip para mostrar el nombre completo de la tarea o actividad en portafolio y una notación tipo HW1, HW2 o PF1, PF2, etc.
+- En la vista SITO, ubica los botones Imprimir y CSV alineados a la izquierda a la misma altura de los botones de Parciales.
+----------------------------------------------------------------------
+Modificación 2 (2026-04-21)
+----------------------------------------------------------------------
+- Agrega la fecha en la parte superior derecha, asegurate de que en la vista resumida se contraiga al formato dd/mm/aaaa.
+- En la vista Home, solo deja la leyenda Estadísticas y las estadísticas hazlas de todos los grupos.
+- Corrige, los encabezados presentan error al mostrar el color de fondo, como se aprecia en la imageb baseline/encabezados_color_error.png.
+- Para los botones en la vista responsiva del menú inferior, usa las abreviaturas:
+WE	Write Exam – Examen Escrito
+OE	Oral Exam – Examen Oral
+PF	Portfolio – Portafolio de Evidencias
+HW	Homework – Tarea
+AT	Attendance – Asistencia
+EX	Exam – Vista resumen de calificaciones por parcial
+ST	Vista de calificaciones finales del sistema institucional
+HM	Home – Vista principal del sistema
+- Elimina el encabezado verde en la vista SITO.
+- Colapsa el menú lateral antes, ya que se sigue viendo mal en determinados tamaños, lo puedes ver en baseline/responsivo_menu_error_2.png.
+----------------------------------------------------------------------
+Modificación 3 (2026-04-23)
+----------------------------------------------------------------------
+- Corrige, revisa la imagen encabezado_error.png, los encabezados se sobreponen al encabezado el nombre del alumno, esto pasa en las demás vistas.
+- En la vista responsiva de Alumnos en celular, al recorrer de manera horizontal los elementos de la tabla en modo vertical, no muestra los botones de Acciones. En este caso, oculta la matrícula para dejar más espacio, cuida que los encabezados no se traslapen al recorrerlos.
+- Vamos a corregir la toma de asistencia, al agregar una nueva fecha de clase, agrega un campo opcional para capturar el tema de la clase. Pondera así, Asistencia y Justificación 100%, Retardo 50% y Falta 0%. Al crear una nueva fecha de asistencia, marca a todos los alumnos con asistencia. Elimina el select con las fechas que existe en esta vista, al igual que elimina el botón Tomar asistencia ya que no están realizando ninguna función en específico, mantén la funcionalidad de que al cambiar el tipo de asistencia del alumno, esta se guarde automáticamente en la bd para evitar el uso de un botón para guardar, por lo mismo, al crear una nueva fecha de clase, esta se debe de guardar. Agrega una funcionalidad para poder eliminar una fecha de asistencia, esta se debe de eliminar de la bd y de la vista, de igual manera que al crearla, se debe de guardar automáticamente en la bd. Alinea el botón Agregar fecha a la derecha de los botones de Parcial 1, Parcial 2 y Parcial 3, para que quede a la misma altura que estos.
+- En las vistas Ex. Escrito y Ex. Oral, permite que al modificar los valores de las casillas, estas se guarden automáticamente en la bd para evitar el uso de un botón para guardar.
+- En las vistas Portafolio y Tareas, permite que al modificar los valores de las casillas, estas se guarden automáticamente en la bd para evitar el uso de un botón para guardar. Alínea el botón Agregar actividad a la derecha a la misma altura que los botones de Parciales.
+----------------------------------------------------------------------
+Modificación 4 (2026-04-24)
+----------------------------------------------------------------------
+- La vista Asistencia muestra este error:
+Warning: Undefined variable $sesionesParcial in /Users/jiriosr/Projects/Antigravity/classcontrol/views/attendance.php on line 83
+
+Fatal error: Uncaught TypeError: count(): Argument #1 ($value) must be of type Countable|array, null given in /Users/jiriosr/Projects/Antigravity/classcontrol/views/attendance.php:83 Stack trace: #0 /Users/jiriosr/Projects/Antigravity/classcontrol/router.php(55): include() #1 /Users/jiriosr/Projects/Antigravity/classcontrol/index.php(46): routePage('attendance') #2 {main} thrown in /Users/jiriosr/Projects/Antigravity/classcontrol/views/attendance.php on line 83
+
+- Coloca un select en lugar de la fecha para poder seleccionar el grupo y al hacerlo cambiar la información en ese momento mostrada en la vista que con que se esté trabajando. El sistema deberá detectar el periodo activo de acuerdo con la fecha del sistema, agrega este widget al Home que muestre las siglas del ciclo vigente en ese momento.
+- Crea un nuevo grupo con la lista en Excel ITEA, créalo en ITEA 8A.
+- Ahora el sistema debe de permitir promover un grupo al siguiente ciclo, por lo que deberá haber una opción para crear primero el ciclo, por ejemplo, para mi caso, mis dos grupos IER e ITEA, los necesito promover de 8° a 9°, pero probablemente debe dar de alta un grupo nuevo para el ciclo 26C2, o tal vez, necesite promover algún grupo que tenía en 8° directamente a 10° durante el ciclo 26C3 ya que no tuve este grupo en 9°, por lo que el sistema deberá siempre mostrar el ciclo actual de acuerdo a la fecha actual del sistema, ya sabes 26C1, o el año que sea, es de enero a abril, 26C2 es de mayo a agosto, 26C3 será de septiembre a diciembre. Por esto mismo, se debe de generar un historial de mis grupos para poder consultarlos, pero deben de predominar los grupos del ciclo en curso. Deberá haber alguna opción para alternar el sistema entre ciclos, probablemente un widget en el Home. Los ciclos son opciones secundarias para consultar. Un maestro puede crear un nuevo ciclo y grupos en cualquier momento.
+----------------------------------------------------------------------
+Modificación 5 (2026-04-24)
+----------------------------------------------------------------------
+- Corrige, el select de grupos en el ancabezado está muy largo, acórtalo y dale otro formato porque es casi indistinguible.
+- Duplicaste el grupo ITEA 8A, uno está vacío, elimínalo.
+- Crea un botón Nuevo ciclo, al lado del botón Nuevo grupo, ya que no existe tal opción, solo se puede crear un ciclo promoviendo un grupos, pero no si son solo grupos nuevos.
+- La vista Alumnos al volverse responsiva en vista vertical, solo muestra los alumnos pero no las aciones.
+- Corrige, en la vista Asistencia, busca la manera para que la tabla o se redimensione, o se desplacen las columnas de asistencias o se activen los botones inferiores, pero debe verse la tabla completa dentro del espacio, revisalo en responsivo_erroneo_3.png.
+- Amplía solo un poco los input de las calificaciones de las vistas Ex. Escrito, Ex. Oral, Portafolio y Tareas, ya que el número 10.0 no se ve completo, revísalo en input_calificaciones.png.
+- Alinea los botones Agregar actividad y Agregar tarea a la izquierda.
+----------------------------------------------------------------------
+Modificación 6 (2026-04-24)
+----------------------------------------------------------------------
+- Aplica un fondo blanco al select en el encabezado para seleccionar el grupo. Reduce este select un poco más.
+- Aplica el mismo formato que tiene el botón de Nuevo grupo al botón Nuevo ciclo.
+- La vista Asistencia, falla al mostrar las asistencias, la vista no es estética ya que al final no se pueden ver las últimas columnas porque no se pueden desplazar, la vista está fija, revisa nuevamente responsivo_erroneo_3.png.
+----------------------------------------------------------------------
+Modificación 7 (2026-04-24)
+----------------------------------------------------------------------
+- Aplica un color obscuro al texto del select del header ya que es blanco y se no se ven las letras.
+- Alínea a la izquierda el botón Agregar fecha en la vista Asistencia.
+- En la vista de celular, cambia el texto de Parcial 1 a P1, Parcial 2 a P2 y Parcial 3 a P3.
+----------------------------------------------------------------------
+Modificación 8 (2026-04-24)
+----------------------------------------------------------------------
+- Los cambios alteraron el comportamiento del menú lateral, ya que se desplaza hacia arriba y hacia abajo al dar scroll a la página.
+----------------------------------------------------------------------
+Modificación 9 (2026-04-24)
+----------------------------------------------------------------------
+- Rediseñar el login de manera que pida usuario y contraseña y al iniciar sesión, el sistema determine si es docente o alumno y lo redirija a la vista correspondiente. También agregar una opción para registrarse en el sistema, para esto se deberá pedir la matrícula ya sea alumno o docente, como esta información se encuentra en la base de datos, el sistema deberá consultar si la matrícula existe y si existe, permitir el registro, en caso contrario, mostrar un mensaje de error, en caso de encontrar al usuario, registra su usuario y se le informará al usuario que su contraseña temporal es su misma matrícula, agregar en el header, un botón de perfil, solo con el avatar que al presionar, muestre matrícula y nombre y permita actualizar la contraseña. Considera que el nombre del usuario se debe formar con la matricula y complearla con @utsalamanca.edu.mx. La contraseña temporal deberá ser la misma matrícula.
+----------------------------------------------------------------------
+Modificación 10 (2026-04-24)
+----------------------------------------------------------------------
+- Cuando ingresa un alummno, llevarlo directamente a la vista de su información, ya no es necesario pedir nuevamente su matrícula, en esta vista, ponder el botón de salir solo con un icono de salir, sin texto. Elimina el texto Portal de Consulta — Alumno y centra el texto ClassHub de manera vertical. 
+----------------------------------------------------------------------
+

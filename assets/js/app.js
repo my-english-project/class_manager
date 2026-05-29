@@ -210,10 +210,18 @@ window.addEventListener('beforeunload', (e) => {
 
 /* ── Logout ───────────────────────────────────────────────── */
 function doLogout() {
-  if (window._hasUnsavedChanges && !confirm('Hay cambios sin guardar. ¿Deseas cerrar sesión de todas formas?')) {
-    return;
+  const modal = document.getElementById('confirm-logout-modal');
+  if (modal) {
+    modal.classList.add('active');
+  } else {
+    if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+      proceedLogout();
+    }
   }
+}
 
+function proceedLogout() {
+  closeModal('confirm-logout-modal');
   fetch('index.php?action=logout', { method: 'POST' })
     .then(r => r.json())
     .then(data => {

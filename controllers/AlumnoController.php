@@ -36,13 +36,15 @@ class AlumnoController
     }
 
     /**
-     * Save a new student and enroll in the active group.
+     * Save a new student and enroll in the selected or active group.
      */
     public function save(): array
     {
         $grupoActivo = $_SESSION['grupo_activo'] ?? null;
-        if (!$grupoActivo) {
-            return ['success' => false, 'message' => 'No hay grupo activo seleccionado.'];
+        $idGrupo = (int)($_POST['id_grupo'] ?? ($grupoActivo['id_grupo'] ?? 0));
+
+        if ($idGrupo <= 0) {
+            return ['success' => false, 'message' => 'No hay grupo de destino seleccionado.'];
         }
 
         $idAlumno    = (int)($_POST['id_alumno'] ?? 0);
@@ -56,7 +58,6 @@ class AlumnoController
         }
 
         $db = Database::getConnection();
-        $grupoId = $grupoActivo['id_grupo'];
 
         try {
             if ($idAlumno > 0) {
@@ -70,6 +71,22 @@ class AlumnoController
                     ':pat' => $apellidoPat, ':mat2' => $apellidoMat ?: null,
                     ':id'  => $idAlumno
                 ]);
+                
+                // If group is changed or if we need to update/verify group association
+                // In edit mode we can also verify if they are associated with the selected group, or insert it if not
+                $stmtEnrolled = $db->prepare(
+                    "SELECT id_grupo_alumno FROM grupo_alumno WHERE id_grupo = :gid AND id_alumno = :aid"
+                );
+                $stmtEnrolled->execute([':gid' => $idGrupo, ':aid' => $idAlumno]);
+                if (!$stmtEnrolled->fetch()) {
+                    // Update/change their enrollment: delete from old groups of the same cycle? Or just insert new association
+                    // Let's insert new association to allow enrollment
+                    $stmtEnroll = $db->prepare(
+                        "INSERT INTO grupo_alumno (id_grupo, id_alumno) VALUES (:gid, :aid)"
+                    );
+                    $stmtEnroll->execute([':gid' => $idGrupo, ':aid' => $idAlumno]);
+                }
+
                 return ['success' => true, 'message' => 'Datos del alumno actualizados.'];
             }
             // Check if student already exists by matricula
@@ -84,7 +101,7 @@ class AlumnoController
                 $stmtEnrolled = $db->prepare(
                     "SELECT id_grupo_alumno FROM grupo_alumno WHERE id_grupo = :gid AND id_alumno = :aid"
                 );
-                $stmtEnrolled->execute([':gid' => $grupoId, ':aid' => $alumnoId]);
+                $stmtEnrolled->execute([':gid' => $idGrupo, ':aid' => $alumnoId]);
 
                 if ($stmtEnrolled->fetch()) {
                     return ['success' => false, 'message' => 'Este alumno ya está inscrito en este grupo.'];
@@ -106,7 +123,7 @@ class AlumnoController
             $stmtEnroll = $db->prepare(
                 "INSERT INTO grupo_alumno (id_grupo, id_alumno) VALUES (:gid, :aid)"
             );
-            $stmtEnroll->execute([':gid' => $grupoId, ':aid' => $alumnoId]);
+            $stmtEnroll->execute([':gid' => $idGrupo, ':aid' => $alumnoId]);
 
             return ['success' => true, 'message' => 'Alumno registrado correctamente.'];
         } catch (PDOException $e) {
@@ -115,14 +132,16 @@ class AlumnoController
     }
 
     /**
-     * Remove a student from the active group (RF-10).
+     * Remove a student from the selected or active group (RF-10).
      * Only allowed if no grades are recorded.
      */
     public function delete(): array
     {
         $grupoActivo = $_SESSION['grupo_activo'] ?? null;
-        if (!$grupoActivo) {
-            return ['success' => false, 'message' => 'No hay grupo activo.'];
+        $grupoId = (int)($_POST['id_grupo'] ?? ($grupoActivo['id_grupo'] ?? 0));
+        
+        if ($grupoId <= 0) {
+            return ['success' => false, 'message' => 'Grupo de origen no válido o ausente.'];
         }
 
         $alumnoId = (int)($_POST['id_alumno'] ?? 0);
@@ -131,7 +150,6 @@ class AlumnoController
         }
 
         $db = Database::getConnection();
-        $grupoId = $grupoActivo['id_grupo'];
 
         // Check for existing grades (RN-12)
         $stmtCheck = $db->prepare("

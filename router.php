@@ -14,19 +14,50 @@ function routePage(string $page): void
 {
     $publicPages = ['login', 'consulta'];
     $protectedPages = [
-        'home', 'alumnos', 'attendance',
+        'home', 'alumnos', 'attendance', 'maestros',
         'write_exam', 'oral_exam', 'portfolio', 'homework',
-        'exam', 'sito', 'sesiones'
+        'exam', 'sito', 'sesiones', 'take_written_exam',
+        'periodos', 'grupos_admin', 'materias'
     ];
 
     $requiresGroup = [
-        'alumnos', 'attendance', 'write_exam', 'oral_exam', 
+        'attendance', 'write_exam', 'oral_exam', 
         'portfolio', 'homework', 'exam', 'sito', 'sesiones'
     ];
 
     // Redirect to login if not authenticated and trying to access a protected page
     if (in_array($page, $protectedPages) && empty($_SESSION['logged_in'])) {
         header('Location: index.php?page=login');
+        exit;
+    }
+
+    // Role Guard: Students cannot access protected pages (only teachers/admin), except home and take_written_exam
+    $studentAllowed = ['home', 'take_written_exam'];
+    if (in_array($page, $protectedPages) && !in_array($page, $studentAllowed) && ($_SESSION['usuario']['rol'] ?? '') === 'alumno') {
+        header('Location: index.php?page=home');
+        exit;
+    }
+
+    // Role Guard: Only admins can access admin modules
+    $adminPages = ['periodos', 'grupos_admin', 'maestros', 'alumnos', 'materias'];
+    if (in_array($page, $adminPages) && ($_SESSION['usuario']['rol'] ?? '') !== 'admin') {
+        header('Location: index.php?page=home');
+        exit;
+    }
+
+    // Role Guard: Only docentes can access evaluation/docencia modules
+    $docentePages = [
+        'attendance', 'write_exam', 'oral_exam', 
+        'portfolio', 'homework', 'exam', 'sito', 'sesiones'
+    ];
+    if (in_array($page, $docentePages) && ($_SESSION['usuario']['rol'] ?? '') !== 'docente') {
+        header('Location: index.php?page=home');
+        exit;
+    }
+
+    // Role Guard: Teacher/Admin cannot access consulta (only students)
+    if ($page === 'consulta' && !empty($_SESSION['logged_in']) && $_SESSION['usuario']['rol'] !== 'alumno') {
+        header('Location: index.php?page=home');
         exit;
     }
 
@@ -83,6 +114,8 @@ function loadControllerData(string $page): array
         'exam'       => 'CalificacionController',
         'sito'       => 'CalificacionController',
         'consulta'   => 'ConsultaController',
+        'maestros'   => 'DocenteController',
+        'materias'   => 'MateriaController',
     ];
 
     if (isset($controllerMap[$page])) {
@@ -117,6 +150,13 @@ function handleAction(string $action): void
         'promote_grupo'      => ['GrupoController', 'promote'],
         'set_active_grupo'   => ['GrupoController', 'setActive'],
         'set_active_ciclo'   => ['GrupoController', 'setActiveCiclo'],
+        'save_ciclo'         => ['GrupoController', 'saveCiclo'],
+        // Materias
+        'save_materia'       => ['MateriaController', 'save'],
+        'delete_materia'     => ['MateriaController', 'delete'],
+        // Maestros
+        'save_maestro'       => ['DocenteController', 'save'],
+        'maestro_history'    => ['DocenteController', 'history'],
         // Alumnos
         'save_alumno'        => ['AlumnoController', 'save'],
         'delete_alumno'      => ['AlumnoController', 'delete'],
@@ -130,6 +170,8 @@ function handleAction(string $action): void
         'save_grades'        => ['CalificacionController', 'saveGrades'],
         'save_activity'      => ['CalificacionController', 'saveActivity'],
         'delete_activity'    => ['CalificacionController', 'deleteActivity'],
+        'submit_written_exam'=> ['CalificacionController', 'submitWrittenExam'],
+        'toggle_written_exam'=> ['CalificacionController', 'toggleWrittenExam'],
         // Consulta
         'consulta_search'    => ['ConsultaController', 'search'],
     ];

@@ -45,6 +45,13 @@ class GrupoController
         $periodo      = $_POST['periodo'] ?? '';
         $anio         = (int)($_POST['anio'] ?? date('Y'));
         $idGrupo      = (int)($_POST['id_grupo'] ?? 0);
+        $materiaId    = (int)($_POST['id_materia'] ?? 0);
+        $rol          = $_SESSION['usuario']['rol'] ?? 'docente';
+
+        // Admin can override id_docente
+        if ($rol === 'admin' && isset($_POST['id_docente'])) {
+            $docenteId = (int)$_POST['id_docente'];
+        }
 
         // Validation
         if (empty($carrera) || empty($siglas) || $cuatrimestre < 1 || $cuatrimestre > 10 || empty($grupo)) {
@@ -63,27 +70,46 @@ class GrupoController
         };
         $ciclo = substr((string)$anio, -2) . 'C' . $periodoNum;
 
+        // Lookup or create materia by siglas if not provided
+        if ($materiaId <= 0) {
+            $stmtM = $db->prepare("SELECT id_materia FROM materia WHERE siglas = :siglas LIMIT 1");
+            $stmtM->execute([':siglas' => $siglas]);
+            $materiaId = $stmtM->fetchColumn();
+
+            if (!$materiaId) {
+                $stmtNewM = $db->prepare("INSERT INTO materia (nombre, siglas, descripcion) VALUES (:nombre, :siglas, :desc)");
+                $stmtNewM->execute([
+                    ':nombre' => 'Inglés — ' . $carrera,
+                    ':siglas' => $siglas,
+                    ':desc' => 'Materia generada automáticamente para la carrera ' . $carrera
+                ]);
+                $materiaId = (int)$db->lastInsertId();
+            }
+        }
+
         try {
             if ($idGrupo > 0) {
                 // Update existing group
-                $stmt = $db->prepare("
-                    UPDATE grupo SET carrera = :carrera, siglas = :siglas, cuatrimestre = :cuat,
-                           grupo = :grupo, periodo = :periodo, ciclo = :ciclo, anio = :anio
-                    WHERE id_grupo = :id AND id_docente = :did
-                ");
-                $stmt->execute([
-                    ':carrera' => $carrera, ':siglas' => $siglas, ':cuat' => $cuatrimestre,
-                    ':grupo' => $grupo, ':periodo' => $periodo, ':ciclo' => $ciclo,
-                    ':anio' => $anio, ':id' => $idGrupo, ':did' => $docenteId,
-                ]);
+                if ($rol === 'admin') {
+                    $stmt = $db->prepare("UPDATE grupo SET id_docente = :did, id_materia = :mid, carrera = :carrera, siglas = :siglas, cuatrimestre = :cuat, grupo = :grupo, periodo = :periodo, ciclo = :ciclo, anio = :anio WHERE id_grupo = :id");
+                    $stmt->execute([
+                        ':did' => $docenteId, ':mid' => $materiaId, ':carrera' => $carrera, ':siglas' => $siglas, ':cuat' => $cuatrimestre,
+                        ':grupo' => $grupo, ':periodo' => $periodo, ':ciclo' => $ciclo,
+                        ':anio' => $anio, ':id' => $idGrupo,
+                    ]);
+                } else {
+                    $stmt = $db->prepare("UPDATE grupo SET id_materia = :mid, carrera = :carrera, siglas = :siglas, cuatrimestre = :cuat, grupo = :grupo, periodo = :periodo, ciclo = :ciclo, anio = :anio WHERE id_grupo = :id AND id_docente = :did");
+                    $stmt->execute([
+                        ':mid' => $materiaId, ':carrera' => $carrera, ':siglas' => $siglas, ':cuat' => $cuatrimestre,
+                        ':grupo' => $grupo, ':periodo' => $periodo, ':ciclo' => $ciclo,
+                        ':anio' => $anio, ':id' => $idGrupo, ':did' => $docenteId,
+                    ]);
+                }
             } else {
                 // Insert new group
-                $stmt = $db->prepare("
-                    INSERT INTO grupo (id_docente, carrera, siglas, cuatrimestre, grupo, periodo, ciclo, anio)
-                    VALUES (:did, :carrera, :siglas, :cuat, :grupo, :periodo, :ciclo, :anio)
-                ");
+                $stmt = $db->prepare("INSERT INTO grupo (id_docente, id_materia, carrera, siglas, cuatrimestre, grupo, periodo, ciclo, anio) VALUES (:did, :mid, :carrera, :siglas, :cuat, :grupo, :periodo, :ciclo, :anio)");
                 $stmt->execute([
-                    ':did' => $docenteId, ':carrera' => $carrera, ':siglas' => $siglas,
+                    ':did' => $docenteId, ':mid' => $materiaId, ':carrera' => $carrera, ':siglas' => $siglas,
                     ':cuat' => $cuatrimestre, ':grupo' => $grupo, ':periodo' => $periodo,
                     ':ciclo' => $ciclo, ':anio' => $anio,
                 ]);
@@ -121,6 +147,12 @@ class GrupoController
             return ['success' => false, 'message' => 'Grupo no encontrado.'];
         }
 
+        $rol = $_SESSION['usuario']['rol'] ?? 'docente';
+        $docenteId = $_SESSION['docente']['id_docente'] ?? 0;
+        if ($rol === 'docente' && (int)$grupo['id_docente'] !== (int)$docenteId) {
+            return ['success' => false, 'message' => 'No autorizado para este grupo.'];
+        }
+
         $_SESSION['grupo_activo'] = $grupo;
         // If the cycle changes when selecting a group explicitly, update cycle as well
         if ($_SESSION['ciclo_activo'] !== $grupo['ciclo']) {
@@ -139,6 +171,7 @@ class GrupoController
             return ['success' => false, 'message' => 'Ciclo no válido.'];
         }
         $_SESSION['ciclo_activo'] = $ciclo;
+        $_SESSION['_ciclo_manual'] = true;
         if (isset($_SESSION['grupo_activo']) && $_SESSION['grupo_activo']['ciclo'] !== $ciclo) {
             unset($_SESSION['grupo_activo']);
         }
@@ -160,6 +193,23 @@ class GrupoController
         $grupo        = strtoupper(trim($_POST['grupo'] ?? ''));
         $periodo      = $_POST['periodo'] ?? '';
         $anio         = (int)($_POST['anio'] ?? date('Y'));
+        $rol          = $_SESSION['usuario']['rol'] ?? 'docente';
+
+        // Fetch original group to get its teacher
+        $stmtOld = $db->prepare("SELECT id_docente FROM grupo WHERE id_grupo = :id");
+        $stmtOld->execute([':id' => $idGrupoOld]);
+        $oldGroup = $stmtOld->fetch();
+        if (!$oldGroup) return ['success' => false, 'message' => 'Grupo original no encontrado.'];
+
+        $targetDocenteId = $oldGroup['id_docente'];
+
+        // Admin can override target teacher
+        if ($rol === 'admin') {
+            if (!isset($_POST['id_docente_new']) || empty($_POST['id_docente_new'])) {
+                return ['success' => false, 'message' => 'Debes seleccionar un maestro asignado.'];
+            }
+            $targetDocenteId = (int)$_POST['id_docente_new'];
+        }
 
         if ($idGrupoOld <= 0 || empty($carrera) || empty($siglas) || $cuatrimestre < 1 || $cuatrimestre > 15 || empty($grupo)) {
             return ['success' => false, 'message' => 'Datos inválidos para promover el grupo.'];
@@ -180,11 +230,11 @@ class GrupoController
             $db->beginTransaction();
 
             $stmt = $db->prepare("
-                INSERT INTO grupo (id_docente, carrera, siglas, cuatrimestre, grupo, periodo, ciclo, anio)
-                VALUES (:did, :carrera, :siglas, :cuat, :grupo, :periodo, :ciclo, :anio)
+                INSERT INTO grupo (id_docente, id_materia, carrera, siglas, cuatrimestre, grupo, periodo, ciclo, anio)
+                VALUES (:did, NULL, :carrera, :siglas, :cuat, :grupo, :periodo, :ciclo, :anio)
             ");
             $stmt->execute([
-                ':did' => $docenteId, ':carrera' => $carrera, ':siglas' => $siglas,
+                ':did' => $targetDocenteId, ':carrera' => $carrera, ':siglas' => $siglas,
                 ':cuat' => $cuatrimestre, ':grupo' => $grupo, ':periodo' => $periodo,
                 ':ciclo' => $ciclo, ':anio' => $anio,
             ]);
@@ -210,6 +260,77 @@ class GrupoController
         } catch (PDOException $e) {
             $db->rollBack();
             return ['success' => false, 'message' => 'Error al promover: ' . $e->getMessage()];
+        }
+    }
+
+    public function saveCiclo(): array
+    {
+        $db = Database::getConnection();
+        if (($_SESSION['usuario']['rol'] ?? '') !== 'admin') {
+            return ['success' => false, 'message' => 'No tiene permisos para esta acción.'];
+        }
+
+        $idCiclo = (int)($_POST['id_ciclo'] ?? 0);
+        $anio = (int)($_POST['anio'] ?? 0);
+        $periodo = $_POST['periodo'] ?? '';
+        $activo = isset($_POST['activo']) ? (int)$_POST['activo'] : 1;
+
+        if ($anio < 2020 || $anio > 2030 || !in_array($periodo, ['ene-abr', 'may-ago', 'sep-dic'])) {
+            return ['success' => false, 'message' => 'Año o periodo no válido.'];
+        }
+
+        $periodoNum = match ($periodo) {
+            'ene-abr' => 1,
+            'may-ago' => 2,
+            'sep-dic' => 3,
+        };
+        $codigo = substr((string)$anio, -2) . 'C' . $periodoNum;
+
+        try {
+            $db->beginTransaction();
+            
+            if ($idCiclo > 0) {
+                // Check duplicate cycle code excluding current ID
+                $stmtCheck = $db->prepare("SELECT COUNT(*) FROM ciclo WHERE codigo = :code AND id_ciclo != :id");
+                $stmtCheck->execute([':code' => $codigo, ':id' => $idCiclo]);
+                if ($stmtCheck->fetchColumn() > 0) {
+                    $db->rollBack();
+                    return ['success' => false, 'message' => 'El periodo/ciclo ' . $codigo . ' ya está registrado.'];
+                }
+
+                if ($activo === 1) {
+                    // Deactivate all other cycles
+                    $db->exec("UPDATE ciclo SET activo = 0");
+                }
+
+                $stmt = $db->prepare("UPDATE ciclo SET codigo = :code, activo = :activo WHERE id_ciclo = :id");
+                $stmt->execute([':code' => $codigo, ':activo' => $activo, ':id' => $idCiclo]);
+
+                $db->commit();
+                return ['success' => true, 'message' => 'Periodo/Ciclo ' . $codigo . ' actualizado correctamente.'];
+            } else {
+                // Check duplicate cycle code
+                $stmtCheck = $db->prepare("SELECT COUNT(*) FROM ciclo WHERE codigo = :code");
+                $stmtCheck->execute([':code' => $codigo]);
+                if ($stmtCheck->fetchColumn() > 0) {
+                    $db->rollBack();
+                    return ['success' => false, 'message' => 'El periodo/ciclo ' . $codigo . ' ya está registrado.'];
+                }
+
+                if ($activo === 1) {
+                    // Deactivate all other cycles
+                    $db->exec("UPDATE ciclo SET activo = 0");
+                }
+
+                $stmt = $db->prepare("INSERT INTO ciclo (codigo, activo) VALUES (:code, :activo)");
+                $stmt->execute([':code' => $codigo, ':activo' => $activo]);
+
+                $db->commit();
+                return ['success' => true, 'message' => 'Periodo/Ciclo ' . $codigo . ' creado correctamente.'];
+            }
+        } catch (Exception $e) {
+            $db->rollBack();
+            return ['success' => false, 'message' => 'Error al guardar: ' . $e->getMessage()];
         }
     }
 }

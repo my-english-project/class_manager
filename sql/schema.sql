@@ -21,11 +21,26 @@ CREATE TABLE IF NOT EXISTS docente (
   apellido_mat  VARCHAR(60)   DEFAULT NULL,
   email         VARCHAR(120)  DEFAULT NULL,
   password_hash VARCHAR(255)  NOT NULL DEFAULT '$2y$10$placeholder',
+  rol           VARCHAR(50)   DEFAULT 'docente',
   activo        TINYINT(1)    NOT NULL DEFAULT 1,
   created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id_docente),
   UNIQUE KEY uq_docente_matricula (matricula),
   UNIQUE KEY uq_docente_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 1.5. TABLA: usuario
+-- ============================================================
+CREATE TABLE IF NOT EXISTS usuario (
+  id_usuario    INT           NOT NULL AUTO_INCREMENT,
+  username      VARCHAR(120)  NOT NULL,
+  password      VARCHAR(255)  NOT NULL,
+  rol           VARCHAR(50)   NOT NULL,
+  id_referencia INT           NOT NULL,
+  created_at    DATETIME      DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id_usuario),
+  UNIQUE KEY uq_usuario_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================

@@ -83,51 +83,49 @@ $sesionesParcial = array_filter($sesiones, fn($s) => $s['parcial'] == $currentPa
   </div>
 
   <!-- Attendance Table -->
-  <?php if (count($sesionesParcial) > 0): ?>
-    <div class="table-wrapper">
-      <table class="data-table" id="table-attendance">
-        <thead>
+  <div class="table-wrapper">
+    <table class="data-table" id="table-attendance">
+      <thead>
+        <tr>
+          <th class="col-num" width="40">#</th>
+          <th class="col-name">Nombre</th>
+          <?php foreach ($sesionesParcial as $s): ?>
+            <th style="text-align:center; min-width:48px; cursor:pointer;" title="<?= htmlspecialchars($s['tema'] ?: 'Editar Fecha') ?>"
+              onclick="editSessionModal(<?= $s['id_sesion'] ?>, '<?= $s['fecha'] ?>', <?= $s['parcial'] ?>, '<?= htmlspecialchars($s['tema'] ?? '', ENT_QUOTES) ?>')">
+              <?= date('d/m', strtotime($s['fecha'])) ?>
+            </th>
+          <?php endforeach; ?>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($alumnos as $i => $alumno): ?>
           <tr>
-            <th class="col-num" width="40">#</th>
-            <th class="col-name">Nombre</th>
-            <?php 
-            foreach ($sesionesParcial as $s): ?>
-              <th style="text-align:center; min-width:48px; cursor:pointer;" title="<?= htmlspecialchars($s['tema'] ?: 'Editar Fecha') ?>"
-                onclick="editSessionModal(<?= $s['id_sesion'] ?>, '<?= $s['fecha'] ?>', <?= $s['parcial'] ?>, '<?= htmlspecialchars($s['tema'] ?? '', ENT_QUOTES) ?>')">
-                <?= date('d/m', strtotime($s['fecha'])) ?>
-              </th>
+            <td class="col-num"><?= $i + 1 ?></td>
+            <td class="col-name"><?= htmlspecialchars($alumno['nombre_completo']) ?></td>
+            <?php foreach ($sesionesParcial as $s): ?>
+              <?php
+              $estado = $asistencias[$alumno['id_alumno']][$s['id_sesion']] ?? '';
+              $labels = ['asistencia' => 'A', 'retardo' => 'R', 'falta' => 'F', 'justificado' => 'J', '' => '·'];
+              ?>
+              <td style="text-align:center; padding: var(--space-2);">
+                <div class="cell-attendance" data-state="<?= $estado ?>" data-sesion="<?= $s['id_sesion'] ?>"
+                  data-alumno="<?= $alumno['id_alumno'] ?>" onclick="cycleAttendance(this)"
+                  title="<?= $estado ?: 'Sin registro' ?>">
+                  <?= $labels[$estado] ?>
+                </div>
+              </td>
             <?php endforeach; ?>
           </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($alumnos as $i => $alumno): ?>
-            <tr>
-              <td class="col-num"><?= $i + 1 ?></td>
-              <td class="col-name"><?= htmlspecialchars($alumno['nombre_completo']) ?></td>
-              <?php foreach ($sesionesParcial as $s): ?>
-                <?php
-                $estado = $asistencias[$alumno['id_alumno']][$s['id_sesion']] ?? '';
-                $labels = ['asistencia' => 'A', 'retardo' => 'R', 'falta' => 'F', 'justificado' => 'J', '' => '·'];
-                ?>
-                <td style="text-align:center; padding: var(--space-2);">
-                  <div class="cell-attendance" data-state="<?= $estado ?>" data-sesion="<?= $s['id_sesion'] ?>"
-                    data-alumno="<?= $alumno['id_alumno'] ?>" onclick="cycleAttendance(this)"
-                    title="<?= $estado ?: 'Sin registro' ?>">
-                    <?= $labels[$estado] ?>
-                  </div>
-                </td>
-              <?php endforeach; ?>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-  <?php else: ?>
-    <div class="card">
-      <div class="empty-state">
-        <h3>Sin sesiones</h3>
-        <p>Agrega fechas de clase para el Parcial <?= $currentParcial ?>.</p>
-      </div>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+
+  <?php if (count($sesionesParcial) === 0): ?>
+    <div class="card" style="margin-top: var(--space-4); border: 1.5px dashed var(--border-color); background: #faf9f6; text-align: center; padding: var(--space-6);">
+      <p style="color: var(--gray-500); font-weight: 600; font-size: var(--text-sm); margin: 0;">
+        No hay sesiones de clase registradas para el Parcial <?= $currentParcial ?>. Presiona "Agregar Fecha" para registrar la primera sesión.
+      </p>
     </div>
   <?php endif; ?>
 

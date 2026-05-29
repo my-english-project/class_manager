@@ -31,6 +31,30 @@ class CalificacionController
         switch ($page) {
             case 'write_exam':
                 $data['grades'] = $this->getExamGrades($db, $grupoId, 'examen_escrito');
+                $stmtConf = $db->prepare("SELECT parcial, generado, preguntas_t1, preguntas_t2, duracion, distribucion_preguntas FROM examen_config WHERE id_grupo = :gid AND ciclo = :ciclo");
+                $stmtConf->execute([':gid' => $grupoId, ':ciclo' => $_SESSION['ciclo_activo']]);
+                $configs = $stmtConf->fetchAll(PDO::FETCH_UNIQUE | PDO::FETCH_ASSOC);
+                
+                // For each config, decode or construct the default distribution JSON
+                foreach ($configs as $parcialKey => &$cfg) {
+                    if (empty($cfg['distribucion_preguntas'])) {
+                        $cfg['distribucion_preguntas'] = json_encode([
+                            "1" => (int)$cfg['preguntas_t1'],
+                            "2" => (int)$cfg['preguntas_t2']
+                        ]);
+                    }
+                }
+                unset($cfg); // break the reference
+                
+                $data['examConfigs'] = $configs;
+                
+                // Fetch topics
+                $data['topics'] = $db->query("SELECT * FROM topico ORDER BY id_topico")->fetchAll();
+
+                // Fetch other groups of this teacher for publishing options
+                $stmtGrupos = $db->prepare("SELECT id_grupo, siglas, cuatrimestre, grupo FROM grupo WHERE id_docente = :did AND ciclo = :ciclo AND activo = 1 ORDER BY siglas, cuatrimestre, grupo");
+                $stmtGrupos->execute([':did' => $_SESSION['docente']['id_docente'] ?? 0, ':ciclo' => $_SESSION['ciclo_activo']]);
+                $data['docenteGrupos'] = $stmtGrupos->fetchAll();
                 break;
             case 'oral_exam':
                 $data['grades'] = $this->getExamGrades($db, $grupoId, 'examen_oral');
@@ -55,7 +79,7 @@ class CalificacionController
     /**
      * Get ordered student list for the active group.
      */
-    private function getStudents(PDO $db, int $grupoId): array
+    private function getStudents($db, int $grupoId): array
     {
         $stmt = $db->prepare("
             SELECT a.id_alumno, a.matricula, a.nombre, a.apellido_pat, a.apellido_mat,
@@ -72,7 +96,7 @@ class CalificacionController
     /**
      * Get exam grades (WE or OE) indexed by alumno_id -> parcial -> calificacion.
      */
-    private function getExamGrades(PDO $db, int $grupoId, string $table): array
+    private function getExamGrades($db, int $grupoId, string $table): array
     {
         $stmt = $db->prepare("
             SELECT id_alumno, parcial, calificacion FROM {$table}
@@ -91,7 +115,7 @@ class CalificacionController
     /**
      * Get activity definitions for a group and type.
      */
-    private function getActivities(PDO $db, int $grupoId, string $tipo): array
+    private function getActivities($db, int $grupoId, string $tipo): array
     {
         $stmt = $db->prepare("
             SELECT * FROM actividad
@@ -105,7 +129,7 @@ class CalificacionController
     /**
      * Get activity grades indexed by alumno_id -> actividad_id -> calificacion.
      */
-    private function getActivityGrades(PDO $db, int $grupoId, string $tipo): array
+    private function getActivityGrades($db, int $grupoId, string $tipo): array
     {
         $stmt = $db->prepare("
             SELECT ca.id_alumno, ca.id_actividad, ca.calificacion
@@ -127,7 +151,7 @@ class CalificacionController
      * Build the exam summary with weighted calculations (RN-07/08/09).
      * Returns per-student: WE, OE, PF, AT per parcial + final grade.
      */
-    private function getExamSummary(PDO $db, int $grupoId, array $alumnos): array
+    private function getExamSummary($db, int $grupoId, array $alumnos): array
     {
         $weGrades = $this->getExamGrades($db, $grupoId, 'examen_escrito');
         $oeGrades = $this->getExamGrades($db, $grupoId, 'examen_oral');
@@ -256,7 +280,7 @@ class CalificacionController
      * Calculate attendance "Ser" grade per student per parcial (RN-07).
      * Ser = (asistencias + 0.5*retardos + justificados) / total_sesiones × 10
      */
-    private function calculateAttendanceGrades(PDO $db, int $grupoId): array
+    private function calculateAttendanceGrades($db, int $grupoId): array
     {
         $stmt = $db->prepare("
             SELECT a.id_alumno, s.parcial, a.estado
@@ -346,12 +370,11 @@ class CalificacionController
                 $stmt = $db->prepare("
                     INSERT INTO {$table} (id_grupo, id_alumno, parcial, calificacion)
                     VALUES (:gid, :aid, :p, :cal)
-                    ON CONFLICT (id_grupo, id_alumno, parcial) 
-                    DO UPDATE SET calificacion = EXCLUDED.calificacion, updated_at = NOW()
+                    ON DUPLICATE KEY UPDATE calificacion = VALUES(calificacion), updated_at = NOW()
                 ");
                 $stmt->execute([
                     ':gid' => $grupoId, ':aid' => $alumnoId,
-                    ':p' => $parcial, ':cal' => $valor, ':cal2' => $valor,
+                    ':p' => $parcial, ':cal' => $valor,
                 ]);
             }
 
@@ -364,7 +387,7 @@ class CalificacionController
     /**
      * Save activity grades (PF/HW).
      */
-    private function saveActivityGrades(PDO $db, array $grades): array
+    private function saveActivityGrades($db, array $grades): array
     {
         try {
             foreach ($grades as $grade) {
@@ -385,12 +408,11 @@ class CalificacionController
                 $stmt = $db->prepare("
                     INSERT INTO calificacion_actividad (id_actividad, id_alumno, calificacion)
                     VALUES (:actid, :aid, :cal)
-                    ON CONFLICT (id_actividad, id_alumno)
-                    DO UPDATE SET calificacion = EXCLUDED.calificacion, updated_at = NOW()
+                    ON DUPLICATE KEY UPDATE calificacion = VALUES(calificacion), updated_at = NOW()
                 ");
                 $stmt->execute([
                     ':actid' => $actId, ':aid' => $alumnoId,
-                    ':cal' => $valor, ':cal2' => $valor,
+                    ':cal' => $valor,
                 ]);
             }
 
@@ -477,6 +499,169 @@ class CalificacionController
             return ['success' => true, 'message' => 'Actividad eliminada.'];
         } catch (PDOException $e) {
             return ['success' => false, 'message' => 'Error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Submit and auto-grade the written exam (AJAX).
+     */
+    public function submitWrittenExam(): array
+    {
+        if (empty($_SESSION['logged_in']) || !in_array($_SESSION['usuario']['rol'] ?? '', ['alumno', 'docente', 'admin'])) {
+            return ['success' => false, 'message' => 'No autorizado.'];
+        }
+
+        $isTestRun = in_array($_SESSION['usuario']['rol'], ['docente', 'admin']);
+        $alumnoId = $isTestRun ? 0 : (int)($_SESSION['alumno']['id_alumno'] ?? 0);
+        $grupoId = (int)($_POST['id_grupo'] ?? 0);
+        $parcial = (int)($_POST['parcial'] ?? 0);
+        $answers = $_POST['answers'] ?? []; // Array of question_id => selected_option_id
+
+        if (!$isTestRun && $alumnoId <= 0) {
+            return ['success' => false, 'message' => 'Datos de examen no válidos (Alumno no identificado).'];
+        }
+        if ($grupoId <= 0 || $parcial < 1 || $parcial > 3) {
+            return ['success' => false, 'message' => 'Datos de examen no válidos.'];
+        }
+
+        $db = Database::getConnection();
+
+        try {
+            if (!$isTestRun) {
+                // Check if student already has a grade for this exam
+                $stmtCheck = $db->prepare("SELECT id_examen_escrito FROM examen_escrito WHERE id_grupo = :gid AND id_alumno = :aid AND parcial = :p");
+                $stmtCheck->execute([':gid' => $grupoId, ':aid' => $alumnoId, ':p' => $parcial]);
+                if ($stmtCheck->fetch()) {
+                    return ['success' => false, 'message' => 'Ya has presentado este examen y tu calificación ya fue guardada.'];
+                }
+            }
+
+            // Retrieve the correct option for all questions to compare
+            $correctCount = 0;
+            
+            $stmtConf = $db->prepare("SELECT preguntas_t1, preguntas_t2 FROM examen_config WHERE id_grupo = :gid AND parcial = :p");
+            $stmtConf->execute([':gid' => $grupoId, ':p' => $parcial]);
+            $config = $stmtConf->fetch();
+            $totalQuestions = $config ? ((int)$config['preguntas_t1'] + (int)$config['preguntas_t2']) : 40;
+
+            if (!empty($answers)) {
+                $questionIds = array_map('intval', array_keys($answers));
+                
+                // Fetch correct option ids for these questions
+                $placeholders = implode(',', array_fill(0, count($questionIds), '?'));
+                $stmtCorrect = $db->prepare("
+                    SELECT id_pregunta, id_opcion 
+                    FROM opcion 
+                    WHERE id_pregunta IN ($placeholders) AND es_correcta = 1
+                ");
+                $stmtCorrect->execute($questionIds);
+                $correctAnswers = $stmtCorrect->fetchAll(PDO::FETCH_KEY_PAIR); // returns [id_pregunta => id_opcion]
+
+                foreach ($answers as $qId => $optId) {
+                    $qId = (int)$qId;
+                    $optId = (int)$optId;
+                    if (isset($correctAnswers[$qId]) && (int)$correctAnswers[$qId] === $optId) {
+                        $correctCount++;
+                    }
+                }
+            }
+
+            // Calculate grade out of 10.0
+            $grade = round(($correctCount / $totalQuestions) * 10, 2);
+
+            if (!$isTestRun) {
+                // Insert score in the database
+                $stmtSave = $db->prepare("
+                    INSERT INTO examen_escrito (id_grupo, id_alumno, parcial, calificacion)
+                    VALUES (:gid, :aid, :p, :cal)
+                    ON DUPLICATE KEY UPDATE calificacion = VALUES(calificacion), updated_at = NOW()
+                ");
+                $stmtSave->execute([
+                    ':gid' => $grupoId,
+                    ':aid' => $alumnoId,
+                    ':p' => $parcial,
+                    ':cal' => $grade
+                ]);
+            }
+
+            return [
+                'success' => true,
+                'message' => $isTestRun ? 'Examen calificado con éxito (Prueba de Docente).' : 'Examen guardado y calificado con éxito.',
+                'score' => $correctCount,
+                'total' => $totalQuestions,
+                'grade' => $grade
+            ];
+        } catch (PDOException $e) {
+            return ['success' => false, 'message' => 'Error al guardar examen: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Enable/Disable (Generate) the online written exam for a group and parcial (AJAX).
+     */
+    public function toggleWrittenExam(): array
+    {
+        if (empty($_SESSION['logged_in']) || !in_array($_SESSION['usuario']['rol'] ?? '', ['docente', 'admin'])) {
+            return ['success' => false, 'message' => 'No autorizado.'];
+        }
+
+        $grupoId = (int)($_POST['id_grupo'] ?? 0);
+        $parcial = (int)($_POST['parcial'] ?? 0);
+        $generado = (int)($_POST['generado'] ?? 0);
+        $duracion = (int)($_POST['duracion'] ?? 50);
+        $targetGroups = $_POST['target_groups'] ?? [$grupoId];
+        $ciclo = $_SESSION['ciclo_activo'] ?? '';
+        
+        // Dynamic distribution
+        $distribucion = $_POST['distribucion'] ?? []; // Map of topic_id => count
+        // Default to empty array if not passed, but we sanitize values
+        $sanitizedDist = [];
+        foreach ($distribucion as $tid => $val) {
+            $sanitizedDist[(int)$tid] = max(0, (int)$val);
+        }
+        $distribucionJson = json_encode($sanitizedDist);
+        
+        // Backward compatibility columns preguntas_t1 and preguntas_t2
+        $preguntasT1 = (int)($sanitizedDist[1] ?? $_POST['preguntas_t1'] ?? 20);
+        $preguntasT2 = (int)($sanitizedDist[2] ?? $_POST['preguntas_t2'] ?? 20);
+
+        if (empty($targetGroups) || $parcial < 1 || $parcial > 3 || empty($ciclo)) {
+            return ['success' => false, 'message' => 'Parámetros no válidos.'];
+        }
+
+        $db = Database::getConnection();
+
+        try {
+            $db->beginTransaction();
+
+            $stmt = $db->prepare("
+                INSERT INTO examen_config (id_grupo, parcial, ciclo, generado, preguntas_t1, preguntas_t2, duracion, distribucion_preguntas)
+                VALUES (:gid, :p, :ciclo, :gen, :t1, :t2, :dur, :dist)
+                ON DUPLICATE KEY UPDATE generado = VALUES(generado), preguntas_t1 = VALUES(preguntas_t1), preguntas_t2 = VALUES(preguntas_t2), duracion = VALUES(duracion), distribucion_preguntas = VALUES(distribucion_preguntas)
+            ");
+
+            foreach ($targetGroups as $gId) {
+                $stmt->execute([
+                    ':gid' => (int)$gId,
+                    ':p' => $parcial,
+                    ':ciclo' => $ciclo,
+                    ':gen' => $generado,
+                    ':t1' => $preguntasT1,
+                    ':t2' => $preguntasT2,
+                    ':dur' => $duracion,
+                    ':dist' => $distribucionJson
+                ]);
+            }
+
+            $db->commit();
+
+            $msg = $generado ? 'Examen habilitado con éxito para el Parcial ' . $parcial : 'Examen deshabilitado para el Parcial ' . $parcial;
+            return ['success' => true, 'message' => $msg];
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return ['success' => false, 'message' => 'Error al configurar examen: ' . $e->getMessage()];
         }
     }
 }

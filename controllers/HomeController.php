@@ -16,19 +16,133 @@ class HomeController
         $docenteId = $_SESSION['docente']['id_docente'] ?? 0;
         $grupoActivo = $_SESSION['grupo_activo'] ?? null;
 
-        // Total groups for this teacher
-        $stmtGroups = $db->prepare("SELECT COUNT(*) as total FROM grupo WHERE id_docente = :id AND activo = 1");
-        $stmtGroups->execute([':id' => $docenteId]);
+        $rol = $_SESSION['usuario']['rol'] ?? 'docente';
+
+        if ($rol === 'alumno') {
+            $alumnoId = $_SESSION['alumno']['id_alumno'] ?? 0;
+            
+            $cicloActivo = $_SESSION['ciclo_activo'] ?? '';
+            
+            // Fetch enrolled groups/materias for the current cycle
+            $stmtGrupos = $db->prepare("
+                SELECT g.*, m.nombre as materia_nombre, m.siglas as materia_siglas, d.nombre as docente_nombre, d.apellido_pat as docente_apellido
+                FROM grupo g
+                INNER JOIN grupo_alumno ga ON g.id_grupo = ga.id_grupo
+                INNER JOIN docente d ON g.id_docente = d.id_docente
+                LEFT JOIN materia m ON g.id_materia = m.id_materia
+                WHERE ga.id_alumno = :aid AND g.activo = 1 AND g.ciclo = :ciclo
+                ORDER BY g.created_at DESC
+            ");
+            $stmtGrupos->execute([':aid' => $alumnoId, ':ciclo' => $cicloActivo]);
+            $enrolledGroups = $stmtGrupos->fetchAll();
+            
+            // Gather all detailed grades and attendance per group and parcial
+            $studentData = [];
+            foreach ($enrolledGroups as $g) {
+                $gid = $g['id_grupo'];
+                
+                $parcialData = [];
+                for ($p = 1; $p <= 3; $p++) {
+                    // 1. Examen Escrito
+                    $stmtWE = $db->prepare("SELECT calificacion FROM examen_escrito WHERE id_grupo = :gid AND id_alumno = :aid AND parcial = :p");
+                    $stmtWE->execute([':gid' => $gid, ':aid' => $alumnoId, ':p' => $p]);
+                    $we = $stmtWE->fetchColumn();
+                    
+                    // 2. Examen Oral
+                    $stmtOE = $db->prepare("SELECT calificacion FROM examen_oral WHERE id_grupo = :gid AND id_alumno = :aid AND parcial = :p");
+                    $stmtOE->execute([':gid' => $gid, ':aid' => $alumnoId, ':p' => $p]);
+                    $oe = $stmtOE->fetchColumn();
+                    
+                    // 3. Portafolio Average
+                    $stmtPF = $db->prepare("
+                        SELECT AVG(ca.calificacion) as avg_pf 
+                        FROM calificacion_actividad ca 
+                        INNER JOIN actividad a ON ca.id_actividad = a.id_actividad 
+                        WHERE a.id_grupo = :gid AND ca.id_alumno = :aid AND a.tipo = 'portafolio' AND a.parcial = :p
+                    ");
+                    $stmtPF->execute([':gid' => $gid, ':aid' => $alumnoId, ':p' => $p]);
+                    $pf = $stmtPF->fetchColumn();
+                    
+                    // 4. Tareas Average
+                    $stmtHW = $db->prepare("
+                        SELECT AVG(ca.calificacion) as avg_hw 
+                        FROM calificacion_actividad ca 
+                        INNER JOIN actividad a ON ca.id_actividad = a.id_actividad 
+                        WHERE a.id_grupo = :gid AND ca.id_alumno = :aid AND a.tipo = 'tarea' AND a.parcial = :p
+                    ");
+                    $stmtHW->execute([':gid' => $gid, ':aid' => $alumnoId, ':p' => $p]);
+                    $hw = $stmtHW->fetchColumn();
+                    
+                    // 5. Asistencias percentage and totals
+                    $stmtAtt = $db->prepare("
+                        SELECT 
+                            SUM(CASE WHEN a.estado = 'asistencia' THEN 1.0 WHEN a.estado = 'justificado' THEN 1.0 WHEN a.estado = 'retardo' THEN 0.5 ELSE 0 END) as present,
+                            COUNT(*) as total
+                        FROM asistencia a
+                        INNER JOIN sesion s ON a.id_sesion = s.id_sesion
+                        WHERE s.id_grupo = :gid AND a.id_alumno = :aid AND s.parcial = :p
+                    ");
+                    $stmtAtt->execute([':gid' => $gid, ':aid' => $alumnoId, ':p' => $p]);
+                    $att = $stmtAtt->fetch();
+
+                    // 6. Examen Escrito Generado/Habilitado por el Docente
+                    $stmtConf = $db->prepare("SELECT generado FROM examen_config WHERE id_grupo = :gid AND parcial = :p AND ciclo = :ciclo");
+                    $stmtConf->execute([':gid' => $gid, ':p' => $p, ':ciclo' => $g['ciclo']]);
+                    $isGenerated = (int)$stmtConf->fetchColumn();
+                    
+                    $parcialData[$p] = [
+                        'we' => $we !== false && $we !== null ? (float)$we : null,
+                        'oe' => $oe !== false && $oe !== null ? (float)$oe : null,
+                        'pf' => $pf !== null ? round((float)$pf, 2) : null,
+                        'hw' => $hw !== null ? round((float)$hw, 2) : null,
+                        'att_present' => $att ? (float)$att['present'] : 0,
+                        'att_total' => $att ? (int)$att['total'] : 0,
+                        'exam_generated' => $isGenerated,
+                    ];
+                }
+                
+                $studentData[] = [
+                    'grupo' => $g,
+                    'parciales' => $parcialData
+                ];
+            }
+            
+            return [
+                'userRol' => 'alumno',
+                'alumno' => $_SESSION['alumno'],
+                'studentData' => $studentData
+            ];
+        }
+
+        // Total groups - Admin sees all, Teacher sees only theirs
+        $sqlGroups = "SELECT COUNT(*) as total FROM grupo WHERE activo = 1";
+        if ($rol !== 'admin') {
+            $sqlGroups .= " AND id_docente = :id";
+        }
+        $stmtGroups = $db->prepare($sqlGroups);
+        if ($rol !== 'admin') {
+            $stmtGroups->execute([':id' => $docenteId]);
+        } else {
+            $stmtGroups->execute();
+        }
         $totalGroups = $stmtGroups->fetch()['total'];
 
-        // Total students across all teacher's groups
-        $stmtStudents = $db->prepare("
+        // Total students across groups
+        $sqlStudents = "
             SELECT COUNT(DISTINCT ga.id_alumno) as total
             FROM grupo_alumno ga
             INNER JOIN grupo g ON ga.id_grupo = g.id_grupo
-            WHERE g.id_docente = :id AND g.activo = 1
-        ");
-        $stmtStudents->execute([':id' => $docenteId]);
+            WHERE g.activo = 1
+        ";
+        if ($rol !== 'admin') {
+            $sqlStudents .= " AND g.id_docente = :id";
+        }
+        $stmtStudents = $db->prepare($sqlStudents);
+        if ($rol !== 'admin') {
+            $stmtStudents->execute([':id' => $docenteId]);
+        } else {
+            $stmtStudents->execute();
+        }
         $totalStudents = $stmtStudents->fetch()['total'];
 
         // Average attendance percentage for active group
@@ -39,25 +153,42 @@ class HomeController
 
         $cicloActivo = $_SESSION['ciclo_activo'] ?? '';
         
-        // Fetch distinct cycles for the widget
-        $stmtCiclos = $db->prepare("SELECT DISTINCT ciclo FROM grupo WHERE id_docente = :id ORDER BY ciclo DESC");
-        $stmtCiclos->execute([':id' => $docenteId]);
+        // Fetch distinct cycles from the master cycle table
+        $stmtCiclos = $db->query("SELECT codigo FROM ciclo ORDER BY codigo DESC");
         $ciclosDisponibles = $stmtCiclos->fetchAll(PDO::FETCH_COLUMN);
+
+        // --- SMART CYCLE SELECTION ---
+        // 1. If we have an active group, sync cycle
+        if ($grupoActivo && isset($grupoActivo['ciclo']) && $cicloActivo !== $grupoActivo['ciclo']) {
+            $cicloActivo = $grupoActivo['ciclo'];
+            $_SESSION['ciclo_activo'] = $cicloActivo;
+        }
+
+        // 2. The active cycle is determined by the current date (or manual selection) and does not auto-fallback.
+        $manuallySelected = $_SESSION['_ciclo_manual'] ?? false;
+        // -----------------------------
         
-        // Ensure the active cycle is in the list, even if it has no groups
+        // Ensure the active cycle is in the list for the UI
         if (!in_array($cicloActivo, $ciclosDisponibles) && !empty($cicloActivo)) {
             array_unshift($ciclosDisponibles, $cicloActivo);
         }
 
         // Fetch groups to display in dashboard matching the active cycle
-        $stmtGrupos = $db->prepare("
+        $sqlGrupos = "
             SELECT g.*, 
                 (SELECT COUNT(*) FROM grupo_alumno ga WHERE ga.id_grupo = g.id_grupo) as total_alumnos 
             FROM grupo g 
-            WHERE g.id_docente = :id AND g.ciclo = :ciclo AND g.activo = 1 
-            ORDER BY g.siglas ASC, g.cuatrimestre ASC, g.grupo ASC
-        ");
-        $stmtGrupos->execute([':id' => $docenteId, ':ciclo' => $cicloActivo]);
+            WHERE g.ciclo = :ciclo AND g.activo = 1 
+        ";
+        $paramsGrupos = [':ciclo' => $cicloActivo];
+        if ($rol !== 'admin') {
+            $sqlGrupos .= " AND g.id_docente = :id";
+            $paramsGrupos[':id'] = $docenteId;
+        }
+        $sqlGrupos .= " ORDER BY g.siglas ASC, g.cuatrimestre ASC, g.grupo ASC";
+        
+        $stmtGrupos = $db->prepare($sqlGrupos);
+        $stmtGrupos->execute($paramsGrupos);
         $grupos = $stmtGrupos->fetchAll();
 
         if (!$grupoActivo && count($grupos) > 0) {
@@ -65,8 +196,8 @@ class HomeController
             $_SESSION['grupo_activo'] = $grupoActivo;
         }
 
-        // Average attendance across ALL active groups of this teacher
-        $stmtAtt = $db->prepare("
+        // Average attendance
+        $sqlAtt = "
             SELECT 
                 COUNT(CASE WHEN a.estado = 'asistencia' THEN 1 END) as present,
                 COUNT(CASE WHEN a.estado = 'justificado' THEN 1 END) as justified,
@@ -75,9 +206,16 @@ class HomeController
             FROM asistencia a
             INNER JOIN sesion s ON a.id_sesion = s.id_sesion
             INNER JOIN grupo g ON s.id_grupo = g.id_grupo
-            WHERE g.id_docente = :did AND g.ciclo = :ciclo AND g.activo = 1
-        ");
-        $stmtAtt->execute([':did' => $docenteId, ':ciclo' => $cicloActivo]);
+            WHERE g.ciclo = :ciclo AND g.activo = 1
+        ";
+        $paramsAtt = [':ciclo' => $cicloActivo];
+        if ($rol !== 'admin') {
+            $sqlAtt .= " AND g.id_docente = :did";
+            $paramsAtt[':did'] = $docenteId;
+        }
+        
+        $stmtAtt = $db->prepare($sqlAtt);
+        $stmtAtt->execute($paramsAtt);
         $attData = $stmtAtt->fetch();
 
         if ($attData['total'] > 0) {
@@ -101,6 +239,13 @@ class HomeController
             }
         }
 
+        // Fetch all teachers if admin (for group assignment)
+        $docentes = [];
+        if ($rol === 'admin') {
+            $stmtD = $db->query("SELECT id_docente, nombre, apellido_pat FROM docente WHERE activo = 1 ORDER BY nombre ASC");
+            $docentes = $stmtD->fetchAll();
+        }
+
         return [
             'totalGroups'   => $totalGroups,
             'totalStudents' => $totalStudents,
@@ -111,13 +256,15 @@ class HomeController
             'grupoActivo'   => $grupoActivo,
             'cicloActivo'   => $cicloActivo,
             'ciclosDisponibles' => $ciclosDisponibles,
+            'docentes'      => $docentes,
+            'userRol'       => $rol
         ];
     }
 
     /**
      * Get summary of student grades (all 3 parciales + final average).
      */
-    private function getStudentGradesSummary(PDO $db, int $grupoId): array
+    private function getStudentGradesSummary($db, int $grupoId): array
     {
         // 1. Fetch all students for the group
         $stmt = $db->prepare("

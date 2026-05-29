@@ -1,6 +1,6 @@
 <?php
 /**
- * ClassHub — Student Consultation Portal (CU-05)
+ * Class Manager — Student Consultation Portal (CU-05)
  * 
  * Read-only view for students to check grades/attendance.
  */
@@ -27,8 +27,8 @@ if (!empty($searchMatricula)) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="ClassHub — Portal de Consulta para Alumnos de la UTS">
-  <title>ClassHub — Consulta de Calificaciones | UTS</title>
+  <meta name="description" content="Class Manager — Portal de Consulta para Alumnos de la UTS">
+  <title>Class Manager — Consulta de Calificaciones | UTS</title>
   <link rel="stylesheet" href="assets/css/styles.css">
   <link rel="icon" type="image/png" href="assets/img/logo-uts-2024.png">
 </head>
@@ -36,7 +36,7 @@ if (!empty($searchMatricula)) {
   <header class="app-header">
     <img src="assets/img/logo-uts-2024.png" alt="UTS Logo" class="header-logo">
     <div class="header-info">
-      <div class="header-title">ClassHub</div>
+      <div class="header-title">Class Manager</div>
     </div>
     
     <?php if (isset($_SESSION['usuario'])): ?>

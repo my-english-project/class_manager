@@ -1404,3 +1404,25 @@ input[type="number"].grade-input {
     border: 1px solid #ddd;
   }
 }
+
+/* Collapsed Sidebar Styles (Tablet+) */
+@media (min-width: 1024px) {
+  .nav-sidebar {
+    transition: width 0.25s ease-in-out;
+  }
+  .nav-sidebar.collapsed {
+    width: 72px !important;
+  }
+  .nav-sidebar.collapsed .nav-sidebar-section {
+    display: none !important;
+  }
+  .nav-sidebar.collapsed .nav-sidebar-item {
+    justify-content: center !important;
+    padding: var(--space-3) 0 !important;
+    gap: 0 !important;
+    border-left-width: 4px;
+  }
+  .nav-sidebar.collapsed .nav-sidebar-item span {
+    display: none !important;
+  }
+}

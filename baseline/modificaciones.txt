@@ -84,4 +84,47 @@ Modificación 10 (2026-04-24)
 ----------------------------------------------------------------------
 - Cuando ingresa un alummno, llevarlo directamente a la vista de su información, ya no es necesario pedir nuevamente su matrícula, en esta vista, ponder el botón de salir solo con un icono de salir, sin texto. Elimina el texto Portal de Consulta — Alumno y centra el texto ClassHub de manera vertical. 
 ----------------------------------------------------------------------
-
+Modificación 11 (2026-05-27)
+----------------------------------------------------------------------
+- Vamos a trabajar con el panel de alumno, en primer lugar, el alumno se deberá dar de alta proporcionando solo su matrícula, la cual, será su usuario, ya no se usarán los correos completos en el entendido que todos serán @utsalamanca.edu.mx, a excepción del usuario admin el cual quedará completo con su dominio, corrige la tabla usuarios para actualizar los nombres de usuario sin el dominio completo.
+- En la ventana de login, en el text box del usuario remueve el dominio @utsalamanca.edu.mx y agrega un texto que diga "Matrícula". 
+Dentro del panel del alumno, el alumno solo debe ver sus materias y la información que le corresponde, por lo que en la vista HOME, solo se debe mostrar las materias que tiene inscritas. 
+Por cada materia deberá poder acceder a la información por parcial, Parcial 1, Parcial 2 y Parcial 3. 
+- En cada parcial deberá ver sus calificaciones en Examen Escrito, Examen Oral, Portafolio, Tareas y Asistencias. No muestres el promedio grupal, solo el individual.
+- También habrá una opción para que el alumno pueda hacer el los exámenes, ya sea el escritro o el oral.
+----------------------------------------------------------------------
+Modificación 12 (2026-05-27)
+----------------------------------------------------------------------
+- Eliminar del panel de alumnos el select superior que contiene los grupos.
+- Revisar, ingresé con la matrícula 612310220 y me muestra el nombre de Admninistrator System, corrige para que muestre el nombre del alumno.
+- No muestres el menu lateral izquierdo en panel de alumnos.
+----------------------------------------------------------------------
+Modificación 13 (2026-05-27)
+----------------------------------------------------------------------
+- Truncar todas las tablas menos la de usuario.
+- Considera la tabla ciclos dentro de la BD si es necesario.
+- Crea dos maestros, Isauro Ríos con matricula usuario jrios y contraseña 1234, y Alejandro Rios con contraseña 1234.
+- Crea dos grupos IER 8A e ITEA 8A, ambos en el ciclo 26C1.
+- Crea la materia Inglés VII.
+- Agrega los alumnos a los grupos, obtén los datos del archivo alumnos.xls, ahí especifica el grupo, ciclo, materia.
+- Actualiza las tablas para las preguntas del examen, ahora las preguntas van a estar agrupadas en temas, por lo que hay que diseñar las tablas correspondientes para soportar esta nueva estructura. Esta es: Tópico, Sección (con los valores: Multiple choice, Word ordering, Error identification,  Theoretical). Identifica estas secciones dentro del archivo examen_ingles_120_preguntas.pdf y gerera las tablas, los temas se identifican compo Part1 y Part 2 dentro de este archivo. La finalidad es agregar un tema y luego las preguntas con sus respuestas correspondientes. 
+- El examen deberá generarse indicando un númnero específico de preguntas por tema, por ejemplo: poner 10 preguntas del Tema A y 10 preguntas del Tema B, una vez generado el examen seleccionar grupo o grupos para publicar el examen en el panel de alumnos, solo así aparecerá en el panel del alumno.
+- Genera el examen con 40 preguntas, 20 del primer tema y 20 del segundo tema.
+- Redefine el panel principal para el administrador y los maestros, solo el administrador puede ver la opción de maestros y el maestro debe de incluir una función para los examenes escritos y orales, dentro de la misma opción de exámenes, esta opción solo se verá para los maestros. El maestro no podrá ver los datos del administrador, ya que solo puede ver los datos de sus alumnos. Solo el administrador puede crear ciclos.
+----------------------------------------------------------------------
+Modificación 14 (2026-05-28)
+----------------------------------------------------------------------
+- Agrega una descripción que debe de ir antes de cada pregunta para orientar al alumno, debe ser de la siguiente manera:
+  -- MULTIPLE CHOICE: Choose the most appropriate modal verb based on the degree of certainty and context provided.
+  -- WORD ORDERING: Select the option that represents the correct grammatical sequence to form a logical sentence.
+  -- ERROR IDENTIFICATION: Select the underlined option that contains a grammatical error or a logical contradiction.
+  -- THEORETICAL REASONING & CONCEPT MATCHING: Select the correct choice that corresponds to standard grammatical rules and semantic interpretations.
+El tipo de pregunta (texto en mayúsculas) ya lo tienes, en la BD, solo agrega la descripción (instrucciones) a cada sección para que esta se muestre a cada alumno.
+- Revisa si es posible hacer el subrayado de las palabras en la sección de Error Identification, ya que en el archivo de preguntas las opciones de respuesta vienen con una palabra subrayada, o bien marcarlas de otro modo, como poner comillas, o paéntesis cuadrados o algo por el estilo, indicar esa marca en las instrucciones.
+- Bloquea el retorno o avance en el examen, ya que si el alumno regresa en el navegar o deslizando la pantalla, se sale del examen y es capaz de volver a comenzarlo desde cero.
+- Agrega un mensaje previo al alumno antes de iniciar el examen, indicándole que cuenta con una sola oportunidad para realizarlo y que tine 50 minutos para realizarlo. Si el alumno sale del examen, no podrá volver a ingresarlo y se registrará como no completado.
+----------------------------------------------------------------------
+Modificación 15 (2026-05-28)
+----------------------------------------------------------------------
+- En la vista de administrador agrega al después del Home, la opción Periodos que muestre una tabla similar a la de maestros con un botón de + Nuevo periodo, debajo de esta opción de menú lateral, pon una opción para los Grupos, con una tabla igual, solo debe de mostrar los grupos del ciclo seleccionado.
+----------------------------------------------------------------------

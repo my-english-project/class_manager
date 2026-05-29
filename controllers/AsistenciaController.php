@@ -93,7 +93,7 @@ class AsistenciaController
         $stmtInsert = $db->prepare("
             INSERT INTO asistencia (id_sesion, id_alumno, estado)
             VALUES (:sid, :aid, 'asistencia')
-            ON CONFLICT (id_sesion, id_alumno) DO UPDATE SET estado = 'asistencia'
+            ON DUPLICATE KEY UPDATE estado = 'asistencia'
         ");
 
         foreach ($alumnos as $alumno) {
@@ -124,11 +124,11 @@ class AsistenciaController
             $stmt = $db->prepare("
                 INSERT INTO asistencia (id_sesion, id_alumno, estado)
                 VALUES (:sid, :aid, :estado)
-                ON CONFLICT (id_sesion, id_alumno) DO UPDATE SET estado = EXCLUDED.estado, updated_at = NOW()
+                ON DUPLICATE KEY UPDATE estado = VALUES(estado), updated_at = NOW()
             ");
             $stmt->execute([
                 ':sid' => $idSesion, ':aid' => $idAlumno,
-                ':estado' => $estado, ':estado2' => $estado,
+                ':estado' => $estado,
             ]);
 
             return ['success' => true];

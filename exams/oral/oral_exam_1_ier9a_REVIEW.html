@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oral Exam 1</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;1,8..60,300&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #f5f0e8;
+      --surface: #fffdf8;
+      --ink: #1a1208;
+      --accent: #b5451b;
+      --accent-light: #e8c4b3;
+      --muted: #7a6a52;
+      --border: #d6cdb8;
+      --fs: 22px;
+    }
+
+    body {
+      font-family: 'Source Serif 4', Georgia, serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--ink);
+      color: var(--bg);
+      padding: 18px 24px 14px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    header h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(1.3rem, 4vw, 2rem);
+      letter-spacing: 0.04em;
+      color: var(--accent-light);
+      line-height: 1.1;
+    }
+
+    header p {
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .controls {
+      background: var(--surface);
+      border-bottom: 2px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .select-wrap {
+      position: relative;
+      flex: 1 1 100%;
+      max-width: 420px;
+    }
+
+    select {
+      width: 100%;
+      appearance: none;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      font-family: 'Source Serif 4', serif;
+      font-size: 1rem;
+      color: var(--ink);
+      padding: 10px 40px 10px 14px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .select-arrow {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--accent);
+      font-size: 1.1rem;
+    }
+
+    .font-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .font-controls span {
+      font-size: 0.78rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .btn {
+      background: var(--ink);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      width: 44px;
+      height: 44px;
+      font-size: 1.3rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, transform 0.1s;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:hover {
+      background: var(--accent);
+    }
+
+    .btn:active {
+      transform: scale(0.92);
+    }
+
+    .btn-sm {
+      width: 34px;
+      height: 34px;
+      font-size: 1rem;
+    }
+
+    .size-display {
+      font-size: 0.85rem;
+      color: var(--accent);
+      font-weight: 400;
+      min-width: 36px;
+      text-align: center;
+    }
+
+    /* ── TTS Controls ────────────────────── */
+    .tts-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .tts-playback {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-tts-play {
+      background: var(--accent) !important;
+      color: #fff !important;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      font-size: 1.4rem;
+    }
+
+    .btn-tts-play:hover {
+      background: #933812 !important;
+    }
+
+    .btn-tts-stop {
+      background: var(--muted) !important;
+      color: #fff !important;
+    }
+
+    .btn-tts-stop:hover {
+      background: #5a4e3a !important;
+    }
+
+    .speed-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .speed-wrap .speed-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .speed-display {
+      font-size: 0.85rem;
+      color: var(--accent);
+      font-weight: 600;
+      min-width: 42px;
+      text-align: center;
+    }
+
+    .tts-separator {
+      width: 1.5px;
+      height: 24px;
+      background: var(--border);
+      margin: 0 4px;
+    }
+
+    .tts-status {
+      font-size: 0.78rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .tts-status.speaking {
+      color: var(--accent);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    /* ── Word highlight ──────────────────── */
+    .word-highlight {
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+      border-radius: 4px;
+      padding: 2px 3px;
+      margin: 0 -3px;
+      transition: background 0.15s ease;
+    }
+
+    main {
+      flex: 1;
+      padding: 32px 20px 60px;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      max-width: 720px;
+      width: 100%;
+      padding: clamp(24px, 5vw, 48px);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
+      animation: fadeIn 0.35s ease;
+    }
+
+    .word-list {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      width: 250px;
+      padding: 20px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
+      animation: fadeIn 0.35s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .word-list h3 {
+      margin: 0 0 10px 0;
+      font-size: 1.1rem;
+      color: var(--accent);
+      text-align: center;
+    }
+
+    .word-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      transition: background 0.2s;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .word-item:hover {
+      background: var(--accent-light);
+    }
+
+    .word-item-text {
+      flex: 1;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .word-checkbox {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+
+    .grade-btn {
+      position: absolute;
+      right: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: auto;
+      padding: 0 16px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      height: 38px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .grade-btn:hover {
+      background: #933812;
+    }
+    .grade-btn:active {
+      transform: translateY(-50%) scale(0.95);
+    }
+
+    .word-item:hover {
+      background: var(--accent-light);
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .topic-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .topic-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(1.2rem, 3.5vw, 1.7rem);
+      color: var(--accent);
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1.5px solid var(--border);
+      line-height: 1.3;
+    }
+
+    .exam-text {
+      font-size: var(--fs);
+      line-height: 1.75;
+      color: var(--ink);
+      transition: font-size 0.2s ease;
+      overflow-wrap: break-word;
+    }
+
+    .placeholder {
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .placeholder-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      opacity: 0.4;
+    }
+
+    .placeholder h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .placeholder p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    /* ── Tablet ────────────────────────── */
+    @media (max-width: 768px) {
+      .controls {
+        padding: 12px 16px;
+        gap: 8px;
+      }
+
+      .select-wrap {
+        flex: 1 1 100%;
+        max-width: 100%;
+      }
+
+      .controls-row {
+        justify-content: center;
+      }
+
+      main {
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .word-list {
+        width: 100%;
+        order: -1;
+        /* Move word list above the card */
+      }
+    }
+
+    /* ── Mobile ────────────────────────── */
+    @media (max-width: 480px) {
+      :root {
+        --fs: 19px;
+      }
+
+      header {
+        padding: 12px 16px 10px;
+      }
+
+      header h1 {
+        font-size: 1.3rem;
+      }
+
+      .controls {
+        padding: 10px 12px;
+        gap: 8px;
+        flex-direction: column;
+      }
+
+      .select-wrap {
+        flex: 1 1 100%;
+        max-width: 100%;
+      }
+
+      select {
+        font-size: 1rem;
+        padding: 12px 40px 12px 14px;
+      }
+
+      .controls-row {
+        width: 100%;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .font-controls {
+        gap: 4px;
+      }
+
+      .font-controls span {
+        font-size: 0.7rem;
+      }
+
+      .tts-separator {
+        display: none;
+      }
+
+      .tts-bar {
+        width: 100%;
+        justify-content: center;
+        gap: 8px;
+        padding: 6px 0;
+        border-top: 1px solid var(--border);
+        margin-top: 2px;
+      }
+
+      .btn-tts-play {
+        width: 52px;
+        height: 52px;
+        font-size: 1.5rem;
+      }
+
+      .speed-display {
+        font-size: 0.9rem;
+        min-width: 44px;
+      }
+
+      .tts-status {
+        width: 100%;
+        text-align: center;
+        font-size: 0.8rem;
+      }
+
+      main {
+        padding: 16px 10px 40px;
+      }
+
+      .card {
+        padding: 18px 16px;
+        border-radius: 8px;
+      }
+
+      .topic-title {
+        font-size: 1.1rem;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+      }
+
+      .exam-text {
+        line-height: 1.85;
+      }
+    }
+
+    /* ── Very small phones ─────────────── */
+    @media (max-width: 360px) {
+      :root {
+        --fs: 17px;
+      }
+
+      header h1 {
+        font-size: 1.15rem;
+      }
+
+      .controls {
+        padding: 8px 10px;
+      }
+
+      .card {
+        padding: 14px 12px;
+      }
+    }
+
+    .word-span {
+      cursor: pointer;
+      transition: background 0.2s;
+      border-radius: 3px;
+      padding: 1px 2px;
+    }
+
+    .word-span:hover {
+      background: var(--accent-light);
+    }
+
+    .word-hint {
+      margin: 12px 0 18px;
+      padding: 10px 14px;
+      border: 1.5px dashed var(--accent-light);
+      background: #fff4ef;
+      border-radius: 8px;
+      font-size: .85rem;
+    }
+
+    /* ── Tip banner ───────────────────────── */
+    .word-tip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 18px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, rgba(181, 69, 27, 0.06) 0%, rgba(181, 69, 27, 0.02) 100%);
+      border: 1px solid rgba(181, 69, 27, 0.15);
+      border-radius: 8px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.4;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .word-tip-icon {
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .word-tip-dismiss {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 0 2px;
+      opacity: 0.6;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+
+    .word-tip-dismiss:hover {
+      opacity: 1;
+    }
+
+    /* ── Custom Modal Styles ──────────────── */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(26, 18, 8, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+    }
+
+    .modal-card {
+      background: var(--surface);
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      transform: scale(0.9);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalFadeIn 0.3s forwards;
+    }
+
+    @keyframes modalFadeIn {
+      to {
+        transform: scale(1);
+      }
+    }
+
+    .modal-header {
+      background: var(--ink);
+      color: var(--accent-light);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-header h2 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.25rem;
+      margin: 0;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.8rem;
+      cursor: pointer;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .modal-close:hover {
+      color: var(--accent-light);
+    }
+
+    .modal-body {
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .score-circle {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      border: 4px solid var(--accent);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--surface) 0%, #fff4ef 100%);
+      box-shadow: inset 0 2px 8px rgba(181, 69, 27, 0.1);
+    }
+
+    .score-value {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.1;
+      font-family: 'Playfair Display', Georgia, serif;
+    }
+
+    .score-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .stats-container {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      color: var(--ink);
+    }
+
+    .stat-label {
+      color: var(--muted);
+    }
+
+    .stat-count {
+      font-weight: 600;
+    }
+
+    .modal-footer {
+      padding: 14px 20px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: center;
+    }
+
+    .btn-modal-ok {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 32px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-modal-ok:hover {
+      background: #933812;
+    }
+
+    .btn-modal-ok:active {
+      transform: scale(0.96);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Custom Modal Alert -->
+  <div id="gradeModal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Resultados de la Evaluación</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="score-circle">
+          <span class="score-value" id="modalScore">10.0</span>
+          <span class="score-label">Calificación</span>
+        </div>
+        <div class="stats-container">
+          <div class="stat-item">
+            <span class="stat-label">Palabras pronunciadas bien:</span>
+            <span class="stat-count" id="correctCount">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Palabras pronunciadas mal:</span>
+            <span class="stat-count" id="incorrectCount">0</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-ok" onclick="closeModal()">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <header>
+    <h1>Oral Exam 1</h1>
+    <p>IER — Group 9A</p>
+    <button class="grade-btn" onclick="calculateGrade()">Calificar</button>
+  </header>
+
+  <div class="controls">
+    <div class="select-wrap">
+      <select id="studentSelect" onchange="showText()">
+        <option value="">— Select a student —</option>
+        <option value="Álvaro">Álvaro</option>
+        <option value="Andrés">Andrés</option>
+        <option value="Carlos">Carlos</option>
+        <option value="Christian">Christian</option>
+        <option value="Emily">Emily</option>
+        <option value="Emiliano">Emiliano</option>
+        <option value="Gustavo">Gustavo</option>
+        <option value="Jovanni">Jovanni</option>
+        <option value="Juan de Dios">Juan de Dios</option>
+        <option value="Leslie">Leslie</option>
+        <option value="Leonel">Leonel</option>
+        <option value="María">María</option>
+        <option value="Mario">Mario</option>
+        <option value="Miguel">Miguel</option>
+        <option value="Miriam">Miriam</option>
+        <option value="Roberto">Roberto</option>
+        <option value="Rodolfo">Rodolfo</option>
+        <option value="Sebastián">Sebastián</option>
+        <option value="Tadeo">Tadeo</option>
+        <option value="Yael">Yael</option>
+      </select>
+      <span class="select-arrow">▾</span>
+    </div>
+
+    <div class="controls-row">
+      <div class="font-controls">
+        <span>Size</span>
+        <button class="btn btn-sm" onclick="changeFont(-2)" aria-label="Decrease font size">−</button>
+        <span class="size-display" id="sizeDisplay">22</span>
+        <button class="btn btn-sm" onclick="changeFont(2)" aria-label="Increase font size">+</button>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <div class="card" id="card">
+      <div class="placeholder">
+        <div class="placeholder-icon">📖</div>
+        <h2>Ready to review?</h2>
+        <p>Select a student's name above to display their exam text.</p>
+      </div>
+    </div>
+    <div class="word-list" id="wordList">
+      <h3>Selected Words</h3>
+    </div>
+  </main>
+
+  <script>
+    const data = {
+      "Emily": {
+        topic: "1. Martin Luther King Jr.",
+        text: "“I have a dream that one day people will be judged not by the color of their skin but by the content of their character. We must walk together, fight injustice, and believe in freedom. The future belongs to equality and hope.”"
+      },
+      "Yael": {
+        topic: "1. Martin Luther King Jr.",
+        text: "“I have a dream that one day people will be judged not by the color of their skin but by the content of their character. We must walk together, fight injustice, and believe in freedom. The future belongs to equality and hope.”"
+      },
+      "Andrés": {
+        topic: "2. Nelson Mandela",
+        text: "“Courage is not the absence of fear, but the triumph over it. We must forgive, unite, and build a nation where freedom and justice guide us. Together, we can transform pain into peace and create a better tomorrow.”"
+      },
+      "Miguel": {
+        topic: "2. Nelson Mandela",
+        text: "“Courage is not the absence of fear, but the triumph over it. We must forgive, unite, and build a nation where freedom and justice guide us. Together, we can transform pain into peace and create a better tomorrow.”"
+      },
+      "Leslie": {
+        topic: "3. Malala Yousafzai",
+        text: "“One child, one teacher, one book, and one pen can change the world. Education is the most powerful weapon against ignorance. We must raise our voices for girls’ rights and never stop believing in the power of learning.”"
+      },
+      "Tadeo": {
+        topic: "3. Malala Yousafzai",
+        text: "“One child, one teacher, one book, and one pen can change the world. Education is the most powerful weapon against ignorance. We must raise our voices for girls’ rights and never stop believing in the power of learning.”"
+      },
+      "Roberto": {
+        topic: "4. John F. Kennedy",
+        text: "“Ask not what your country can do for you—ask what you can do for your country. Each citizen has a duty to serve, to dream, and to act. Together, we can build a stronger and brighter nation.”"
+      },
+      "Emiliano": {
+        topic: "4. John F. Kennedy",
+        text: "“Ask not what your country can do for you—ask what you can do for your country. Each citizen has a duty to serve, to dream, and to act. Together, we can build a stronger and brighter nation.”"
+      },
+      "Leonel": {
+        topic: "5. Barack Obama",
+        text: "“Yes, we can. We can change, we can build, we can dream. Hope is stronger than fear, and unity is stronger than division. Together, ordinary people can achieve extraordinary things.”"
+      },
+      "Rodolfo": {
+        topic: "5. Barack Obama",
+        text: "“Yes, we can. We can change, we can build, we can dream. Hope is stronger than fear, and unity is stronger than division. Together, ordinary people can achieve extraordinary things.”"
+      },
+      "Jovanni": {
+        topic: "6. Mother Teresa",
+        text: "“Not all of us can do great things, but we can do small things with great love. Kindness is the language of the heart. When we serve others, we serve humanity and bring light into the world.”"
+      },
+      "Gustavo": {
+        topic: "6. Mother Teresa",
+        text: "“Not all of us can do great things, but we can do small things with great love. Kindness is the language of the heart. When we serve others, we serve humanity and bring light into the world.”"
+      },
+      "Sebastián": {
+        topic: "7. Albert Einstein",
+        text: "“Imagination is more important than knowledge. Knowledge tells us what is, but imagination shows us what can be. Never stop questioning, never stop dreaming. Curiosity is the spark that moves humanity forward.”"
+      },
+      "Christian": {
+        topic: "7. Albert Einstein",
+        text: "“Imagination is more important than knowledge. Knowledge tells us what is, but imagination shows us what can be. Never stop questioning, never stop dreaming. Curiosity is the spark that moves humanity forward.”"
+      },
+      "Mario": {
+        topic: "8. Steve Jobs",
+        text: "“Stay hungry, stay foolish. Innovation comes from passion and courage. Don’t be afraid to follow your heart, even when the path is uncertain. The people who change the world are those who dare to think differently.”"
+      },
+      "Miriam": {
+        topic: "8. Steve Jobs",
+        text: "“Stay hungry, stay foolish. Innovation comes from passion and courage. Don’t be afraid to follow your heart, even when the path is uncertain. The people who change the world are those who dare to think differently.”"
+      },
+      "Carlos": {
+        topic: "9. Oprah Winfrey",
+        text: "“The biggest adventure you can take is to live the life of your dreams. Believe in yourself, embrace challenges, and turn failures into lessons. Success is not about wealth, but about purpose and joy.”"
+      },
+      "Álvaro": {
+        topic: "9. Oprah Winfrey",
+        text: "“The biggest adventure you can take is to live the life of your dreams. Believe in yourself, embrace challenges, and turn failures into lessons. Success is not about wealth, but about purpose and joy.”"
+      },
+      "Juan de Dios": {
+        topic: "10. Mahatma Gandhi",
+        text: "“Be the change you wish to see in the world. Peace begins with each of us. Through nonviolence, truth, and compassion, we can transform society and inspire generations to walk the path of justice.”"
+      },
+      "María": {
+        topic: "10. Mahatma Gandhi",
+        text: "“Be the change you wish to see in the world. Peace begins with each of us. Through nonviolence, truth, and compassion, we can transform society and inspire generations to walk the path of justice.”"
+      }
+    };
+
+    let fontSize = 22;
+    const MIN = 14, MAX = 48;
+    let selectedWords = [];
+    let tipDismissed = false;
+
+    function showText() {
+      const name = document.getElementById('studentSelect').value;
+      const card = document.getElementById('card');
+      const wordList = document.getElementById('wordList');
+      if (!name) {
+        card.innerHTML = `<div class="placeholder"><div class="placeholder-icon">📖</div><h2>Ready to review?</h2><p>Select a student's name above to display their exam text.</p></div>`;
+        wordList.innerHTML = `<h3>Selected Words</h3>`;
+        selectedWords = [];
+        return;
+      }
+      const entry = data[name];
+      selectedWords = []; // Reset selected words for new student
+
+      card.innerHTML = `
+      <div class="topic-label">Topic</div>
+      <div class="topic-title">${entry.topic}</div>
+      
+      <p class="exam-text" id="examText" style="font-size:${fontSize}px">${wrapWordsInSpans(entry.text)}</p>
+    `;
+      updateWordList();
+    }
+
+    function wrapWordsInSpans(text) {
+      const words = text.split(/\s+/);
+      return words.map(w => `<span class="word-span">${w}</span>`).join(' ');
+    }
+
+    function addWord(word) {
+      word = word.replace(/[.,;:!?"'()“”]/g, '').toLowerCase();
+      if (!selectedWords.includes(word) && word.length > 1) {
+        selectedWords.push(word);
+        updateWordList();
+      }
+    }
+
+    function updateWordList() {
+      const wordList = document.getElementById('wordList');
+      wordList.innerHTML = `<h3>Selected Words</h3>`;
+      selectedWords.forEach(word => {
+        const item = document.createElement('div');
+        item.className = 'word-item';
+        
+        const textSpan = document.createElement('span');
+        textSpan.className = 'word-item-text';
+        textSpan.textContent = word;
+        textSpan.onclick = () => speakWord(word);
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'word-checkbox';
+        checkbox.title = 'Marcar si lo pronunció correctamente';
+
+        item.appendChild(textSpan);
+        item.appendChild(checkbox);
+        wordList.appendChild(item);
+      });
+    }
+
+    function calculateGrade() {
+      const checkboxes = document.querySelectorAll('.word-checkbox');
+      const totalWords = checkboxes.length;
+      if (totalWords === 0) {
+        showModal(10.0, 0, 0);
+        return;
+      }
+      const correct = document.querySelectorAll('.word-checkbox:checked').length;
+      const unchecked = totalWords - correct;
+      const grade = Math.max(0, 10 - (unchecked * 0.5));
+      showModal(grade, correct, unchecked);
+    }
+
+    function showModal(grade, correct, incorrect) {
+      const modal = document.getElementById('gradeModal');
+      document.getElementById('modalScore').textContent = grade.toFixed(1);
+      document.getElementById('correctCount').textContent = correct;
+      document.getElementById('incorrectCount').textContent = incorrect;
+      
+      modal.style.display = 'flex';
+      // Trigger reflow for CSS animation
+      modal.offsetHeight;
+      modal.classList.add('active');
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('gradeModal');
+      modal.classList.remove('active');
+      setTimeout(() => {
+        modal.style.display = 'none';
+      }, 300);
+    }
+
+    function speakWord(word) {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(word);
+      u.lang = 'en-US';
+      u.rate = 0.8;
+      const voice = getEnglishVoice();
+      if (voice) u.voice = voice;
+      speechSynthesis.speak(u);
+    }
+
+    function getEnglishVoice() {
+      const voices = speechSynthesis.getVoices();
+      // Prefer local male English voices, as they are more likely to support word boundary events.
+      const maleLocal = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male') && v.localService);
+      if (maleLocal) return maleLocal;
+      const maleNetwork = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male') && !v.localService);
+      if (maleNetwork) return maleNetwork;
+      // Prefer local English voices before network voices to preserve onboundary support.
+      const englishLocal = voices.find(v => v.lang.startsWith('en') && v.localService);
+      if (englishLocal) return englishLocal;
+      const networkEn = voices.find(v => v.lang.startsWith('en') && !v.localService);
+      if (networkEn) return networkEn;
+      return voices.find(v => v.lang.startsWith('en')) || null;
+    }
+
+    function dismissTip() {
+      tipDismissed = true;
+      const tip = document.getElementById('wordTip');
+      if (tip) tip.style.display = 'none';
+    }
+
+    function changeFont(delta) {
+      fontSize = Math.min(MAX, Math.max(MIN, fontSize + delta));
+      document.documentElement.style.setProperty('--fs', fontSize + 'px');
+      document.getElementById('sizeDisplay').textContent = fontSize;
+      const t = document.getElementById('examText');
+      if (t) t.style.fontSize = fontSize + 'px';
+    }
+
+    // Ensure voices are loaded
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = () => { /* voices ready */ };
+    }
+
+    document.addEventListener('mouseup', () => {
+      const sel = window.getSelection();
+      let word = sel.toString().trim();
+      if (!word || word.includes(' ') || word.length < 2) return;
+      word = word.replace(/[.,;:!?"'()“”]/g, '').toLowerCase();
+      if (!selectedWords.includes(word)) {
+        selectedWords.push(word);
+        updateWordList();
+      }
+    });
+
+  </script>
+</body>
+
+</html>

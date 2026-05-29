@@ -1,0 +1,41 @@
+# Famous Speeches
+
+# 1\. Martin Luther King Jr.
+
+“I have a dream that one day people will be judged not by the color of their skin but by the content of their character. We must walk together, fight injustice, and believe in freedom. The future belongs to equality and hope.”
+
+# 2\. Nelson Mandela
+
+“Courage is not the absence of fear, but the triumph over it. We must forgive, unite, and build a nation where freedom and justice guide us. Together, we can transform pain into peace and create a better tomorrow.”
+
+# 3\. Malala Yousafzai
+
+“One child, one teacher, one book, and one pen can change the world. Education is the most powerful weapon against ignorance. We must raise our voices for girls’ rights and never stop believing in the power of learning.”
+
+# 4\. John F. Kennedy
+
+“Ask not what your country can do for you—ask what you can do for your country. Each citizen has a duty to serve, to dream, and to act. Together, we can build a stronger and brighter nation.”
+
+# 5\. Barack Obama
+
+“Yes, we can. We can change, we can build, we can dream. Hope is stronger than fear, and unity is stronger than division. Together, ordinary people can achieve extraordinary things.”
+
+# 6\. Mother Teresa
+
+“Not all of us can do great things, but we can do small things with great love. Kindness is the language of the heart. When we serve others, we serve humanity and bring light into the world.”
+
+# 7\. Albert Einstein
+
+“Imagination is more important than knowledge. Knowledge tells us what is, but imagination shows us what can be. Never stop questioning, never stop dreaming. Curiosity is the spark that moves humanity forward.”
+
+# 8\. Steve Jobs
+
+“Stay hungry, stay foolish. Innovation comes from passion and courage. Don’t be afraid to follow your heart, even when the path is uncertain. The people who change the world are those who dare to think differently.”
+
+# 9\. Oprah Winfrey
+
+“The biggest adventure you can take is to live the life of your dreams. Believe in yourself, embrace challenges, and turn failures into lessons. Success is not about wealth, but about purpose and joy.”
+
+# 10\. Mahatma Gandhi
+
+“Be the change you wish to see in the world. Peace begins with each of us. Through nonviolence, truth, and compassion, we can transform society and inspire generations to walk the path of justice.”  

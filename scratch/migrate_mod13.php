@@ -170,6 +170,7 @@ try {
       id_alumno INT NOT NULL,
       parcial TINYINT NOT NULL,
       calificacion DECIMAL(4,2) DEFAULT NULL,
+      fecha_presentacion DATETIME DEFAULT NULL,
       updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE KEY uq_we (id_grupo, id_alumno, parcial),
       FOREIGN KEY (id_grupo) REFERENCES grupo(id_grupo) ON DELETE CASCADE,

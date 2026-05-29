@@ -572,9 +572,9 @@ class CalificacionController
             if (!$isTestRun) {
                 // Insert score in the database
                 $stmtSave = $db->prepare("
-                    INSERT INTO examen_escrito (id_grupo, id_alumno, parcial, calificacion)
-                    VALUES (:gid, :aid, :p, :cal)
-                    ON DUPLICATE KEY UPDATE calificacion = VALUES(calificacion), updated_at = NOW()
+                    INSERT INTO examen_escrito (id_grupo, id_alumno, parcial, calificacion, fecha_presentacion)
+                    VALUES (:gid, :aid, :p, :cal, NOW())
+                    ON DUPLICATE KEY UPDATE calificacion = VALUES(calificacion), fecha_presentacion = VALUES(fecha_presentacion), updated_at = NOW()
                 ");
                 $stmtSave->execute([
                     ':gid' => $grupoId,

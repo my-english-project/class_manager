@@ -49,9 +49,11 @@ class HomeController
                     $we = $stmtWE->fetchColumn();
                     
                     // 2. Examen Oral
-                    $stmtOE = $db->prepare("SELECT calificacion FROM examen_oral WHERE id_grupo = :gid AND id_alumno = :aid AND parcial = :p");
+                    $stmtOE = $db->prepare("SELECT calificacion, id_oral_text FROM examen_oral WHERE id_grupo = :gid AND id_alumno = :aid AND parcial = :p");
                     $stmtOE->execute([':gid' => $gid, ':aid' => $alumnoId, ':p' => $p]);
-                    $oe = $stmtOE->fetchColumn();
+                    $oeRow = $stmtOE->fetch();
+                    $oe = $oeRow ? $oeRow['calificacion'] : null;
+                    $idOralText = $oeRow ? $oeRow['id_oral_text'] : null;
                     
                     // 3. Portafolio Average
                     $stmtPF = $db->prepare("
@@ -93,6 +95,7 @@ class HomeController
                     $parcialData[$p] = [
                         'we' => $we !== false && $we !== null ? (float)$we : null,
                         'oe' => $oe !== false && $oe !== null ? (float)$oe : null,
+                        'id_oral_text' => $idOralText,
                         'pf' => $pf !== null ? round((float)$pf, 2) : null,
                         'hw' => $hw !== null ? round((float)$hw, 2) : null,
                         'att_present' => $att ? (float)$att['present'] : 0,

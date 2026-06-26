@@ -71,11 +71,11 @@ if ($usuario && $usuario['rol'] === 'docente') {
           }
           $gruposCiclo = $stmtGruposHeader->fetchAll();
         ?>
-        <select class="form-control form-select" onchange="setActiveGroup(this.value)" style="border-radius: 20px; padding: var(--space-1) var(--space-6) var(--space-1) var(--space-3); border: 2px solid var(--primary); font-weight: 700; font-size: var(--text-sm); color: #1A202C; background-color: #ffffff; width: auto; max-width: 130px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); height: 32px;">
+        <select class="form-control form-select" onchange="setActiveGroup(this.value)" style="border-radius: 20px; padding: var(--space-1) var(--space-6) var(--space-1) var(--space-3); border: 2px solid var(--primary); font-weight: 700; font-size: var(--text-sm); color: #1A202C; background-color: #ffffff; width: auto; max-width: 185px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); height: 32px;">
           <option value="" disabled <?= !$grupoActivo ? 'selected' : '' ?>>Grupo...</option>
           <?php foreach ($gruposCiclo as $g): ?>
             <option value="<?= $g['id_grupo'] ?>" <?= $grupoActivo && $grupoActivo['id_grupo'] == $g['id_grupo'] ? 'selected' : '' ?>>
-              <?= htmlspecialchars($g['siglas'] . $g['cuatrimestre'] . $g['grupo']) ?>
+              <?= htmlspecialchars($g['siglas'] . $g['cuatrimestre'] . $g['grupo']) ?> (<?= htmlspecialchars($g['ciclo']) ?>)
             </option>
           <?php endforeach; ?>
         </select>

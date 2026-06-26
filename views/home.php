@@ -107,8 +107,12 @@ if ($userRol === 'alumno'):
               style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid var(--border-color); padding-bottom: var(--space-3); margin-bottom: var(--space-4);">
               <div>
                 <h2
-                  style="font-size: var(--text-lg); font-weight: 700; color: var(--primary-800); margin: 0; font-family: var(--font-heading);">
-                  <?= $groupName ?></h2>
+                  style="font-size: var(--text-lg); font-weight: 700; color: var(--primary-800); margin: 0; font-family: var(--font-heading); display: inline-flex; align-items: baseline; gap: var(--space-2);">
+                  <?= $groupName ?>
+                  <span style="font-size: var(--text-xs); font-weight: 500; color: var(--gray-500); font-family: var(--font-body);">
+                    (<?= htmlspecialchars($g['ciclo'] ?? '') ?>)
+                  </span>
+                </h2>
                 <p
                   style="font-size: var(--text-sm); font-weight: 600; color: var(--gray-700); margin-top: 4px; margin-bottom: 2px;">
                   Alumno:
@@ -296,16 +300,18 @@ if ($userRol === 'alumno'):
                     <span
                       style="font-size: 11px; color: var(--gray-500); font-weight: 500; margin-bottom: var(--space-3);">Saber
                       (36%)</span>
-                    <?php if ($oeGrade === null && $oralPath !== '#'): ?>
-                      <a href="<?= $oralPath ?>" target="_blank" class="btn btn-outline btn-sm"
-                        style="width: 100%; text-align: center; border-radius: 20px; font-size: 11px; padding: 4px 8px; font-weight: bold; margin-top: auto;">Presentar</a>
-                    <?php elseif ($oralPath !== '#'): ?>
+                    <?php 
+                    $idOralText = $grades['id_oral_text'] ?? null;
+                    if ($oeGrade === null && $idOralText !== null): 
+                    ?>
+                      <a href="index.php?page=take_oral_exam&id_grupo=<?= $g['id_grupo'] ?>&parcial=<?= $p ?>" class="btn btn-primary btn-sm"
+                        style="width: 100%; text-align: center; border-radius: 20px; font-size: 11px; padding: 4px 8px; font-weight: bold; margin-top: auto;">Ver Examen Oral</a>
+                    <?php elseif ($oeGrade !== null): ?>
                       <span
                         style="font-size: 11px; color: #6366f1; font-weight: 600; margin-top: auto; display: flex; align-items: center; gap: 4px;">✓
                         Completado</span>
                     <?php else: ?>
-                      <span style="font-size: 11px; color: var(--gray-400); font-weight: 600; margin-top: auto;">No
-                        disponible</span>
+                      <span style="font-size: 11px; color: var(--gray-400); font-weight: 600; margin-top: auto;">No asignado</span>
                     <?php endif; ?>
                   </div>
 

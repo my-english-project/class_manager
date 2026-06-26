@@ -1426,3 +1426,10 @@ input[type="number"].grade-input {
     display: none !important;
   }
 }
+
+/* Responsive adjustments for mobile portrait */
+@media (max-width: 480px) {
+  .header-title {
+    display: none !important;
+  }
+}

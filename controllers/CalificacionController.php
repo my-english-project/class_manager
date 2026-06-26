@@ -12,12 +12,39 @@ class CalificacionController
 {
     public function index(string $page = ''): array
     {
+        $db = Database::getConnection();
         $grupoActivo = $_SESSION['grupo_activo'] ?? null;
+        
+        if ($page === 'take_oral_exam') {
+            $alumnoId = $_SESSION['alumno']['id_alumno'] ?? 0;
+            $parcial = (int)($_GET['parcial'] ?? 0);
+            $grupoIdVal = (int)($_GET['id_grupo'] ?? 0);
+            
+            if ($grupoIdVal <= 0 && $grupoActivo) {
+                $grupoIdVal = $grupoActivo['id_grupo'];
+            }
+            
+            $stmtVar = $db->prepare("
+                SELECT txt.id_oral_text, txt.texto, txt.titulo, t.nombre AS topic_name, g.siglas, g.cuatrimestre, g.grupo
+                FROM examen_oral eo
+                INNER JOIN examen_oral_texto txt ON eo.id_oral_text = txt.id_oral_text
+                INNER JOIN examen_oral_tema t ON txt.id_oral_topic = t.id_oral_topic
+                INNER JOIN grupo g ON eo.id_grupo = g.id_grupo
+                WHERE eo.id_grupo = :gid AND eo.id_alumno = :aid AND eo.parcial = :p
+            ");
+            $stmtVar->execute([':gid' => $grupoIdVal, ':aid' => $alumnoId, ':p' => $parcial]);
+            $assigned_text = $stmtVar->fetch();
+            
+            return [
+                'assigned_text' => $assigned_text ?: null,
+                'parcial' => $parcial
+            ];
+        }
+
         if (!$grupoActivo) {
             return ['alumnos' => [], 'grupoActivo' => null];
         }
 
-        $db = Database::getConnection();
         $grupoId = $grupoActivo['id_grupo'];
 
         // Base student list
@@ -58,6 +85,74 @@ class CalificacionController
                 break;
             case 'oral_exam':
                 $data['grades'] = $this->getExamGrades($db, $grupoId, 'examen_oral');
+                
+                // Fetch assigned texts details
+                $stmtAssigned = $db->prepare("
+                    SELECT eo.id_alumno, eo.parcial, eo.id_oral_text, t.nombre AS topic_name, txt.texto AS text_content, txt.titulo AS text_title
+                    FROM examen_oral eo
+                    LEFT JOIN examen_oral_texto txt ON eo.id_oral_text = txt.id_oral_text
+                    LEFT JOIN examen_oral_tema t ON txt.id_oral_topic = t.id_oral_topic
+                    WHERE eo.id_grupo = :gid
+                ");
+                $stmtAssigned->execute([':gid' => $grupoId]);
+                $assignedList = $stmtAssigned->fetchAll();
+                $assigned = [];
+                foreach ($assignedList as $row) {
+                    $assigned[$row['id_alumno']][$row['parcial']] = [
+                        'id_oral_text' => $row['id_oral_text'],
+                        'topic_name' => $row['topic_name'],
+                        'text_content' => $row['text_content'],
+                        'text_title' => $row['text_title']
+                    ];
+                }
+                $data['assigned'] = $assigned;
+                
+                // Fetch topics
+                $data['topics'] = $db->query("SELECT * FROM examen_oral_tema ORDER BY id_oral_topic DESC")->fetchAll();
+                break;
+
+            case 'oral_exam_review':
+                // Teacher evaluates a specific student's oral exam
+                $idAlumno = (int)($_GET['id_alumno'] ?? 0);
+                $parcial = (int)($_GET['parcial'] ?? 0);
+                
+                $stmtStudent = $db->prepare("SELECT id_alumno, matricula, CONCAT(apellido_pat, ' ', COALESCE(apellido_mat, ''), ' ', nombre) AS nombre_completo FROM alumno WHERE id_alumno = :aid");
+                $stmtStudent->execute([':aid' => $idAlumno]);
+                $data['student'] = $stmtStudent->fetch();
+                $data['parcial'] = $parcial;
+                
+                $stmtVar = $db->prepare("
+                    SELECT txt.id_oral_text, txt.texto, txt.titulo, t.nombre AS topic_name
+                    FROM examen_oral eo
+                    INNER JOIN examen_oral_texto txt ON eo.id_oral_text = txt.id_oral_text
+                    INNER JOIN examen_oral_tema t ON txt.id_oral_topic = t.id_oral_topic
+                    WHERE eo.id_grupo = :gid AND eo.id_alumno = :aid AND eo.parcial = :p
+                ");
+                $stmtVar->execute([':gid' => $grupoId, ':aid' => $idAlumno, ':p' => $parcial]);
+                $data['assigned_text'] = $stmtVar->fetch();
+                break;
+
+            case 'take_oral_exam':
+                // Student view of their assigned oral exam
+                $alumnoId = $_SESSION['alumno']['id_alumno'] ?? 0;
+                $parcial = (int)($_GET['parcial'] ?? 0);
+                $grupoIdVal = (int)($_GET['id_grupo'] ?? 0);
+                
+                if ($grupoIdVal <= 0 && $grupoActivo) {
+                    $grupoIdVal = $grupoActivo['id_grupo'];
+                }
+                
+                $stmtVar = $db->prepare("
+                    SELECT txt.id_oral_text, txt.texto, txt.titulo, t.nombre AS topic_name, g.siglas, g.cuatrimestre, g.grupo
+                    FROM examen_oral eo
+                    INNER JOIN examen_oral_texto txt ON eo.id_oral_text = txt.id_oral_text
+                    INNER JOIN examen_oral_tema t ON txt.id_oral_topic = t.id_oral_topic
+                    INNER JOIN grupo g ON eo.id_grupo = g.id_grupo
+                    WHERE eo.id_grupo = :gid AND eo.id_alumno = :aid AND eo.parcial = :p
+                ");
+                $stmtVar->execute([':gid' => $grupoIdVal, ':aid' => $alumnoId, ':p' => $parcial]);
+                $data['assigned_text'] = $stmtVar->fetch();
+                $data['parcial'] = $parcial;
                 break;
             case 'portfolio':
                 $data['activities'] = $this->getActivities($db, $grupoId, 'portafolio');
@@ -662,6 +757,199 @@ class CalificacionController
                 $db->rollBack();
             }
             return ['success' => false, 'message' => 'Error al configurar examen: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Save a new oral exam topic and parse its markdown paragraphs (AJAX).
+     */
+    public function saveOralTopic(): array
+    {
+        if (empty($_SESSION['logged_in']) || !in_array($_SESSION['usuario']['rol'] ?? '', ['docente', 'admin'])) {
+            return ['success' => false, 'message' => 'No autorizado.'];
+        }
+
+        $nombre = trim($_POST['nombre'] ?? '');
+        $markdownText = trim($_POST['markdown_text'] ?? '');
+
+        if (empty($nombre) || empty($markdownText)) {
+            return ['success' => false, 'message' => 'El nombre del tema y el contenido son obligatorios.'];
+        }
+
+        // Split blocks by blank lines (double newlines)
+        $blocks = preg_split('/\r?\n\s*\r?\n/', $markdownText);
+        $blocks = array_filter(array_map('trim', $blocks));
+
+        $variants = [];
+        foreach ($blocks as $block) {
+            $lines = explode("\n", $block);
+            $lines = array_filter(array_map('trim', $lines));
+            
+            if (empty($lines)) continue;
+            
+            // First line is the title (e.g. "1. Volcanoes")
+            $title = array_shift($lines);
+            
+            // Remaining lines joined by space is the body text
+            $body = implode(" ", $lines);
+            $body = trim($body);
+            
+            if (!empty($body)) {
+                $variants[] = [
+                    'title' => $title,
+                    'text' => $body
+                ];
+            }
+        }
+
+        if (empty($variants)) {
+            return ['success' => false, 'message' => 'No se encontraron textos válidos en el contenido.'];
+        }
+
+        $db = Database::getConnection();
+
+        try {
+            $db->beginTransaction();
+
+            // Insert topic
+            $stmtTopic = $db->prepare("INSERT INTO examen_oral_tema (nombre, markdown_text) VALUES (:nom, :md)");
+            $stmtTopic->execute([':nom' => $nombre, ':md' => $markdownText]);
+            $topicId = $db->lastInsertId();
+
+            // Insert paragraph variants
+            $stmtText = $db->prepare("INSERT INTO examen_oral_texto (id_oral_topic, parrafo_num, texto, titulo) VALUES (:tid, :pnum, :txt, :title)");
+            $pnum = 1;
+            foreach ($variants as $var) {
+                $stmtText->execute([
+                    ':tid' => $topicId,
+                    ':pnum' => $pnum++,
+                    ':txt' => $var['text'],
+                    ':title' => $var['title']
+                ]);
+            }
+
+            $db->commit();
+            return ['success' => true, 'message' => 'Tema de examen oral guardado con éxito con ' . count($variants) . ' variantes.'];
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return ['success' => false, 'message' => 'Error al guardar tema: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Randomly and balancedly assign oral exam paragraphs to a group of students (AJAX).
+     */
+    public function assignOralExam(): array
+    {
+        if (empty($_SESSION['logged_in']) || !in_array($_SESSION['usuario']['rol'] ?? '', ['docente', 'admin'])) {
+            return ['success' => false, 'message' => 'No autorizado.'];
+        }
+
+        $grupoId = (int)($_POST['id_grupo'] ?? 0);
+        $parcial = (int)($_POST['parcial'] ?? 0);
+        $topicId = (int)($_POST['id_oral_topic'] ?? 0);
+
+        if ($grupoId <= 0 || $parcial < 1 || $parcial > 3 || $topicId <= 0) {
+            return ['success' => false, 'message' => 'Parámetros de asignación no válidos.'];
+        }
+
+        $db = Database::getConnection();
+
+        try {
+            // Fetch all student IDs in the group (ordered by name)
+            $students = $this->getStudents($db, $grupoId);
+            if (empty($students)) {
+                return ['success' => false, 'message' => 'El grupo seleccionado no tiene alumnos inscritos.'];
+            }
+
+            // Fetch paragraph variants in numerical order
+            $stmtTexts = $db->prepare("SELECT id_oral_text FROM examen_oral_texto WHERE id_oral_topic = :tid ORDER BY parrafo_num ASC");
+            $stmtTexts->execute([':tid' => $topicId]);
+            $variants = $stmtTexts->fetchAll(PDO::FETCH_COLUMN);
+
+            if (empty($variants)) {
+                return ['success' => false, 'message' => 'El tema seleccionado no tiene textos configurados.'];
+            }
+
+            $db->beginTransaction();
+
+            // Assign variants sequentially in numerical order
+            $numVariants = count($variants);
+            $variantIndex = 0;
+
+            // Assign one variant to each student
+            $stmtAssign = $db->prepare("
+                INSERT INTO examen_oral (id_grupo, id_alumno, parcial, id_oral_text)
+                VALUES (:gid, :aid, :p, :oid)
+                ON DUPLICATE KEY UPDATE id_oral_text = VALUES(id_oral_text)
+            ");
+
+            foreach ($students as $student) {
+                $assignedTextId = $variants[$variantIndex % $numVariants];
+                $variantIndex++;
+
+                $stmtAssign->execute([
+                    ':gid' => $grupoId,
+                    ':aid' => $student['id_alumno'],
+                    ':p' => $parcial,
+                    ':oid' => $assignedTextId
+                ]);
+            }
+
+            $db->commit();
+            return ['success' => true, 'message' => 'Examen oral asignado con éxito a todos los alumnos del grupo en orden numérico.'];
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return ['success' => false, 'message' => 'Error al asignar examen: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Save an oral exam grade from the review page (AJAX).
+     */
+    public function saveOralGrade(): array
+    {
+        if (empty($_SESSION['logged_in']) || !in_array($_SESSION['usuario']['rol'] ?? '', ['docente', 'admin'])) {
+            return ['success' => false, 'message' => 'No autorizado.'];
+        }
+
+        $grupoId = (int)($_POST['id_grupo'] ?? 0);
+        $alumnoId = (int)($_POST['id_alumno'] ?? 0);
+        $parcial = (int)($_POST['parcial'] ?? 0);
+        $grade = $_POST['calificacion'];
+
+        if ($grupoId <= 0 || $alumnoId <= 0 || $parcial < 1 || $parcial > 3) {
+            return ['success' => false, 'message' => 'Datos de calificación no válidos.'];
+        }
+
+        if ($grade !== '' && $grade !== null) {
+            $grade = min(10.0, max(0.0, round((float)$grade, 2)));
+        } else {
+            $grade = null;
+        }
+
+        $db = Database::getConnection();
+
+        try {
+            $stmt = $db->prepare("
+                INSERT INTO examen_oral (id_grupo, id_alumno, parcial, calificacion)
+                VALUES (:gid, :aid, :p, :cal)
+                ON DUPLICATE KEY UPDATE calificacion = VALUES(calificacion), updated_at = NOW()
+            ");
+            $stmt->execute([
+                ':gid' => $grupoId,
+                ':aid' => $alumnoId,
+                ':p' => $parcial,
+                ':cal' => $grade
+            ]);
+
+            return ['success' => true, 'message' => 'Calificación de examen oral guardada correctamente.'];
+        } catch (PDOException $e) {
+            return ['success' => false, 'message' => 'Error al guardar calificación: ' . $e->getMessage()];
         }
     }
 }

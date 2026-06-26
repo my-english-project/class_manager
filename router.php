@@ -17,12 +17,12 @@ function routePage(string $page): void
         'home', 'alumnos', 'attendance', 'maestros',
         'write_exam', 'oral_exam', 'portfolio', 'homework',
         'exam', 'sito', 'sesiones', 'take_written_exam',
-        'periodos', 'grupos_admin', 'materias'
+        'periodos', 'grupos_admin', 'materias', 'take_oral_exam', 'oral_exam_review'
     ];
 
     $requiresGroup = [
         'attendance', 'write_exam', 'oral_exam', 
-        'portfolio', 'homework', 'exam', 'sito', 'sesiones'
+        'portfolio', 'homework', 'exam', 'sito', 'sesiones', 'oral_exam_review'
     ];
 
     // Redirect to login if not authenticated and trying to access a protected page
@@ -32,7 +32,7 @@ function routePage(string $page): void
     }
 
     // Role Guard: Students cannot access protected pages (only teachers/admin), except home and take_written_exam
-    $studentAllowed = ['home', 'take_written_exam'];
+    $studentAllowed = ['home', 'take_written_exam', 'take_oral_exam'];
     if (in_array($page, $protectedPages) && !in_array($page, $studentAllowed) && ($_SESSION['usuario']['rol'] ?? '') === 'alumno') {
         header('Location: index.php?page=home');
         exit;
@@ -48,7 +48,7 @@ function routePage(string $page): void
     // Role Guard: Only docentes can access evaluation/docencia modules
     $docentePages = [
         'attendance', 'write_exam', 'oral_exam', 
-        'portfolio', 'homework', 'exam', 'sito', 'sesiones'
+        'portfolio', 'homework', 'exam', 'sito', 'sesiones', 'oral_exam_review'
     ];
     if (in_array($page, $docentePages) && ($_SESSION['usuario']['rol'] ?? '') !== 'docente') {
         header('Location: index.php?page=home');
@@ -103,19 +103,21 @@ function loadControllerData(string $page): array
     $data = [];
 
     $controllerMap = [
-        'home'       => 'HomeController',
-        'alumnos'    => 'AlumnoController',
-        'sesiones'   => 'SesionController',
-        'attendance' => 'AsistenciaController',
-        'write_exam' => 'CalificacionController',
-        'oral_exam'  => 'CalificacionController',
-        'portfolio'  => 'CalificacionController',
-        'homework'   => 'CalificacionController',
-        'exam'       => 'CalificacionController',
-        'sito'       => 'CalificacionController',
-        'consulta'   => 'ConsultaController',
-        'maestros'   => 'DocenteController',
-        'materias'   => 'MateriaController',
+        'home'            => 'HomeController',
+        'alumnos'         => 'AlumnoController',
+        'sesiones'        => 'SesionController',
+        'attendance'      => 'AsistenciaController',
+        'write_exam'      => 'CalificacionController',
+        'oral_exam'       => 'CalificacionController',
+        'take_oral_exam'  => 'CalificacionController',
+        'oral_exam_review'=> 'CalificacionController',
+        'portfolio'       => 'CalificacionController',
+        'homework'        => 'CalificacionController',
+        'exam'            => 'CalificacionController',
+        'sito'            => 'CalificacionController',
+        'consulta'        => 'ConsultaController',
+        'maestros'        => 'DocenteController',
+        'materias'        => 'MateriaController',
     ];
 
     if (isset($controllerMap[$page])) {
@@ -172,6 +174,10 @@ function handleAction(string $action): void
         'delete_activity'    => ['CalificacionController', 'deleteActivity'],
         'submit_written_exam'=> ['CalificacionController', 'submitWrittenExam'],
         'toggle_written_exam'=> ['CalificacionController', 'toggleWrittenExam'],
+        // Examen Oral
+        'save_oral_topic'    => ['CalificacionController', 'saveOralTopic'],
+        'assign_oral_exam'   => ['CalificacionController', 'assignOralExam'],
+        'save_oral_grade'    => ['CalificacionController', 'saveOralGrade'],
         // Consulta
         'consulta_search'    => ['ConsultaController', 'search'],
     ];

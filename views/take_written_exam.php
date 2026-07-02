@@ -90,6 +90,27 @@ if ($existingGrade !== false && $existingGrade !== null) {
 $allQuestions = [];
 
 try {
+  // Fetch historically answered question IDs for homework tasks by this student
+  $stmtHistory = $db->prepare("
+      SELECT ca.preguntas_respondidas 
+      FROM calificacion_actividad ca
+      INNER JOIN actividad a ON ca.id_actividad = a.id_actividad
+      WHERE ca.id_alumno = :alu AND a.tipo = 'tarea' AND ca.preguntas_respondidas IS NOT NULL
+  ");
+  $stmtHistory->execute([':alu' => $alumnoId]);
+  $historyRecords = $stmtHistory->fetchAll(PDO::FETCH_COLUMN);
+
+  $excludedQuestionIds = [];
+  foreach ($historyRecords as $record) {
+      $arr = json_decode($record, true);
+      if (is_array($arr)) {
+          foreach ($arr as $qid) {
+              $excludedQuestionIds[] = (int)$qid;
+          }
+      }
+  }
+  $excludedQuestionIds = array_unique($excludedQuestionIds);
+
   foreach ($distribucion as $topicId => $limitTopic) {
     $topicId = (int) $topicId;
     $limitTopic = (int) $limitTopic;
@@ -111,11 +132,16 @@ try {
     $limitPerSection = (int) ceil($limitTopic / $sectionsCount);
 
     foreach ($sections as $sec) {
+      $notInSql = '';
+      if (!empty($excludedQuestionIds)) {
+          $notInSql = "AND p.id_pregunta NOT IN (" . implode(',', $excludedQuestionIds) . ")";
+      }
+
       $stmt = $db->prepare("
           SELECT p.*, s.letra AS seccion, s.nombre AS seccion_nombre, s.descripcion AS seccion_descripcion, s.id_topico AS parte
           FROM pregunta p
           INNER JOIN seccion s ON p.id_seccion = s.id_seccion
-          WHERE s.id_seccion = :sid
+          WHERE s.id_seccion = :sid $notInSql
           ORDER BY RAND()
           LIMIT :lim
       ");
@@ -123,6 +149,29 @@ try {
       $stmt->bindValue(':lim', $limitPerSection, PDO::PARAM_INT);
       $stmt->execute();
       $questions = $stmt->fetchAll();
+
+      // Fallback: reuse questions used in homeworks if there are not enough unused ones
+      if (count($questions) < $limitPerSection) {
+          $missing = $limitPerSection - count($questions);
+          $excludeAlreadyFetched = '';
+          if (!empty($questions)) {
+              $alreadyFetched = array_column($questions, 'id_pregunta');
+              $excludeAlreadyFetched = "AND p.id_pregunta NOT IN (" . implode(',', $alreadyFetched) . ")";
+          }
+          $stmtFallback = $db->prepare("
+              SELECT p.*, s.letra AS seccion, s.nombre AS seccion_nombre, s.descripcion AS seccion_descripcion, s.id_topico AS parte
+              FROM pregunta p
+              INNER JOIN seccion s ON p.id_seccion = s.id_seccion
+              WHERE s.id_seccion = :sid $excludeAlreadyFetched
+              ORDER BY RAND()
+              LIMIT :lim
+          ");
+          $stmtFallback->bindValue(':sid', $sec['id_seccion'], PDO::PARAM_INT);
+          $stmtFallback->bindValue(':lim', $missing, PDO::PARAM_INT);
+          $stmtFallback->execute();
+          $questions = array_merge($questions, $stmtFallback->fetchAll());
+      }
+
       foreach ($questions as $q) {
         $questionsTopic[] = $q;
       }

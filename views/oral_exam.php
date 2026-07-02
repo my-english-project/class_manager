@@ -45,7 +45,7 @@ $topics = $topics ?? [];
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
         <path d="M12 5v14M5 12h14" />
       </svg>
-      Nuevo examen
+      Nuevo tema
     </button>
     <button class="btn btn-outline" onclick="openModal('modal-assign-exam')"
       style="display: inline-flex; align-items: center; gap: 6px; border-color: var(--primary); color: var(--primary);">

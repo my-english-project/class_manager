@@ -64,7 +64,7 @@ $filteredActs = array_filter($activities, fn($a) => $a['parcial'] == $currentPar
           <?php $idx = 1;
           foreach ($filteredActs as $act): ?>
             <th style="text-align:center; min-width:64px; cursor:pointer;" title="<?= htmlspecialchars($act['nombre']) ?>"
-              onclick="editActivityModal(<?= $act['id_actividad'] ?>, '<?= htmlspecialchars($act['nombre']) ?>')">
+              onclick="editActivityModal(<?= $act['id_actividad'] ?>, '<?= htmlspecialchars($act['nombre']) ?>', '<?= $act['id_topico'] ?>', '<?= htmlspecialchars($act['distribucion_preguntas'] ?? '') ?>')">
               HW<?= $idx++ ?></th>
           <?php endforeach; ?>
           <th style="text-align:center; background: rgba(255,255,255,0.1);">Promedio</th>
@@ -105,23 +105,69 @@ $filteredActs = array_filter($activities, fn($a) => $a['parcial'] == $currentPar
   </div>
 <?php endif; ?>
 
-<!-- Reuse activity modal from portfolio -->
+<!-- Modal de Configuración de Tarea -->
 <div class="modal-overlay" id="modal-activity">
-  <div class="modal">
+  <div class="modal" style="max-width: 500px; text-align: left; padding: var(--space-6); border-radius: 16px; box-shadow: var(--shadow-lg);">
     <div class="modal-handle"></div>
-    <h2 class="modal-title" id="modal-activity-title">Agregar Tarea</h2>
+    <h3 style="margin-bottom: var(--space-1); font-weight: 800; font-size: var(--text-lg); color: var(--primary-800);" id="modal-activity-title">Configurar Tarea</h3>
+    <p style="color: var(--gray-500); font-size: var(--text-xs); margin-bottom: var(--space-4);">Elige la distribución de reactivos y publica la tarea a uno o varios grupos.</p>
+
     <form id="form-activity" onsubmit="saveNewActivity(event)">
       <input type="hidden" id="activity-id" name="id_actividad" value="">
       <input type="hidden" id="activity-tipo" name="tipo" value="tarea">
       <input type="hidden" id="activity-parcial" name="parcial" value="<?= $currentParcial ?>">
-      <div class="form-group">
-        <label class="form-label" for="activity-nombre">Nombre de la Tarea</label>
-        <input type="text" class="form-control" id="activity-nombre" name="nombre" placeholder="Ej. Tarea 1" required>
+
+      <!-- Dynamic Topics Reactivos List -->
+      <div style="margin-bottom: var(--space-4); border-bottom: 1.5px solid var(--border-color); padding-bottom: var(--space-3);">
+        <div style="display: grid; grid-template-columns: 1fr 100px; gap: var(--space-3); border-bottom: 2px solid var(--border-color); padding-bottom: 6px; margin-bottom: var(--space-3); font-weight: 800; color: var(--gray-700); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+          <div>Tema</div>
+          <div style="text-align: right;">Reactivos</div>
+        </div>
+        
+        <div style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-3); padding-right: var(--space-1);">
+          <?php foreach ($topics as $top): ?>
+            <div style="display: grid; grid-template-columns: 1fr 90px; gap: var(--space-3); align-items: center;">
+              <div style="font-size: var(--text-sm); font-weight: 600; color: var(--gray-800); display: flex; align-items: center; gap: 8px;">
+                <span style="color: var(--uts-green); font-size: 16px; line-height: 1;">•</span>
+                <?= htmlspecialchars($top['nombre']) ?> (<?= (int)($top['total_preguntas'] ?? 0) ?>)
+              </div>
+              <div>
+                <input type="number" class="form-control topic-input" 
+                       id="topic-input-<?= $top['id_topico'] ?>" 
+                       name="distribucion[<?= $top['id_topico'] ?>]" 
+                       min="0" max="<?= (int)($top['total_preguntas'] ?? 0) ?>" value="0"
+                       style="border-radius: 8px; text-align: center; height: 36px; padding: 4px; font-weight: 600;">
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
       </div>
-      <div style="display: flex; gap: var(--space-3); margin-top: var(--space-6);">
-        <button type="button" class="btn btn-outline" style="flex:1;"
-          onclick="closeModal('modal-activity')">Cancelar</button>
-        <button type="submit" class="btn btn-primary" style="flex:1;">Agregar</button>
+
+      <!-- Groups and Name row -->
+      <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--space-4); margin-bottom: var(--space-5); align-items: start;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-weight: 700; margin-bottom: var(--space-2); display: block;">Publicar en Grupo(s)</label>
+          <div style="display: flex; flex-direction: column; gap: var(--space-2); max-height: 110px; overflow-y: auto; padding: var(--space-2); border: 1.5px solid var(--border-color); border-radius: 8px; background: #faf9f6;">
+            <?php foreach ($docenteGrupos as $g): ?>
+              <label style="display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); font-weight: 600; cursor: pointer; color: var(--gray-700); margin: 0;">
+                <input type="checkbox" name="target_groups[]" value="<?= $g['id_grupo'] ?>" 
+                       <?= $g['id_grupo'] == $grupoActivo['id_grupo'] ? 'checked onclick="return false;"' : '' ?>
+                       style="width: 16px; height: 16px; accent-color: var(--uts-green);">
+                <span><?= htmlspecialchars($g['siglas'] . $g['cuatrimestre'] . $g['grupo']) ?></span>
+              </label>
+            <?php endforeach; ?>
+          </div>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="activity-nombre" style="font-weight: 700;">Nombre de la Tarea</label>
+          <input type="text" class="form-control" id="activity-nombre" name="nombre" placeholder="Ej. Tarea 1" required style="border-radius: 8px; height: 40px; font-weight: 600;">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: var(--space-3); justify-content: flex-end; align-items: center;">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-activity')" style="border-radius: 20px; font-weight: bold;">Cancelar</button>
+        <button type="submit" class="btn btn-primary" style="border-radius: 20px; font-weight: bold;" id="btn-save-activity">Habilitar Tarea</button>
       </div>
     </form>
   </div>
@@ -133,13 +179,42 @@ $filteredActs = array_filter($activities, fn($a) => $a['parcial'] == $currentPar
     document.getElementById('activity-tipo').value = tipo;
     document.getElementById('activity-parcial').value = parcial;
     document.getElementById('activity-nombre').value = '';
-    document.getElementById('modal-activity-title').textContent = 'Agregar Tarea';
+    
+    // Reset all topic inputs to 0
+    document.querySelectorAll('.topic-input').forEach(input => {
+      input.value = 0;
+    });
+
+    document.getElementById('modal-activity-title').textContent = 'Configurar Tarea';
     document.getElementById('modal-activity').classList.add('active');
   }
 
-  function editActivityModal(id, nombre) {
+  function editActivityModal(id, nombre, idTopico, distribucion) {
     document.getElementById('activity-id').value = id;
     document.getElementById('activity-nombre').value = nombre;
+    
+    // Reset all first
+    document.querySelectorAll('.topic-input').forEach(input => {
+      input.value = 0;
+    });
+
+    if (distribucion) {
+      try {
+        const dist = JSON.parse(distribucion);
+        for (const [tid, qty] of Object.entries(dist)) {
+          const input = document.getElementById('topic-input-' + tid);
+          if (input) {
+            input.value = qty;
+          }
+        }
+      } catch (e) {}
+    } else if (idTopico) {
+      const input = document.getElementById('topic-input-' + idTopico);
+      if (input) {
+        input.value = 10;
+      }
+    }
+    
     document.getElementById('modal-activity-title').textContent = 'Modificar Tarea';
     document.getElementById('modal-activity').classList.add('active');
   }

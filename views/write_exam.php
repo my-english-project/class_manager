@@ -144,7 +144,7 @@ $grupoActivo = $grupoActivo ?? null;
               <div style="display: grid; grid-template-columns: 1fr 90px; gap: var(--space-3); align-items: center;">
                 <div style="font-size: var(--text-sm); font-weight: 600; color: var(--gray-800); display: flex; align-items: center; gap: 8px;">
                   <span style="color: var(--uts-green); font-size: 16px; line-height: 1;">•</span>
-                  <?= htmlspecialchars($top['nombre']) ?>
+                  <?= htmlspecialchars($top['nombre']) ?> (<?= (int)($top['total_preguntas'] ?? 0) ?>)
                 </div>
                 <div>
                   <input type="number" class="form-control topic-input" 

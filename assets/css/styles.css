@@ -747,6 +747,17 @@ input[type="number"].grade-input {
   color: white;
 }
 
+.btn-warning {
+  background: linear-gradient(135deg, var(--color-warning), #D87D25);
+  color: white;
+  box-shadow: 0 2px 8px rgba(242,153,74,0.25);
+}
+
+.btn-warning:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(242,153,74,0.35);
+}
+
 .btn-sm {
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-xs);

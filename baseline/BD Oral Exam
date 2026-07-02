@@ -1,0 +1,37 @@
+### Cambios en la Base de Datos
+
+Para habilitar la funcionalidad del examen oral, se implementaron los siguientes cambios estructurales:
+
+1. **Creación de la tabla `examen_oral_tema`**: Almacena los temas principales de los exámenes orales (por ejemplo: "Steve Jobs", "Holidays") con su contenido original en formato Markdown.
+2. **Creación de la tabla `examen_oral_texto`**: Almacena las variantes individuales (párrafos con título opcional) generados a partir de los bloques de texto separados por líneas en blanco en el Markdown de cada tema.
+3. **Modificación de la tabla `examen_oral`**: Se agregó la columna `id_oral_text` y una clave foránea (`fk_eo_text`) para guardar y vincular de forma específica qué variante/párrafo aleatorio y balanceado le fue asignado a cada alumno para un parcial determinado.
+
+---
+
+### DDL / DML de las Nuevas Tablas
+
+A continuación se detallan las sentencias SQL de definición de datos (DDL) para crear la estructura descrita:
+
+```sql
+-- 1. Tabla de temas (tópicos principales)
+CREATE TABLE IF NOT EXISTS examen_oral_tema (
+  id_oral_topic INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(120) NOT NULL,
+  markdown_text TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2. Tabla de variantes/párrafos de lectura del examen
+CREATE TABLE IF NOT EXISTS examen_oral_texto (
+  id_oral_text INT AUTO_INCREMENT PRIMARY KEY,
+  id_oral_topic INT NOT NULL,
+  parrafo_num INT NOT NULL,
+  texto TEXT NOT NULL,
+  titulo VARCHAR(120) DEFAULT NULL,
+  FOREIGN KEY (id_oral_topic) REFERENCES examen_oral_tema(id_oral_topic) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 3. Modificación de la tabla existente 'examen_oral' para asignar el texto al alumno
+ALTER TABLE examen_oral ADD COLUMN id_oral_text INT DEFAULT NULL;
+ALTER TABLE examen_oral ADD CONSTRAINT fk_eo_text FOREIGN KEY (id_oral_text) REFERENCES examen_oral_texto(id_oral_text) ON DELETE SET NULL;
+```

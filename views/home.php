@@ -57,12 +57,12 @@ if ($userRol === 'alumno'):
           <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
       </span>
-      Portal de Consulta Académica
+      Portal Académico
     </h1>
-    <p class="page-description">Consulta tus calificaciones y presenta tus exámenes en línea</p>
+    <!--<p class="page-description">Consulta tus calificaciones y presenta tus exámenes en línea</p>-->
   </div>
 
-  <div class="student-dashboard" style="margin-top: var(--space-6);">
+  <div class="student-dashboard" style="margin-top: var(--space-1);">
     <?php if (empty($studentData)): ?>
       <div class="card"
         style="border: 2px solid var(--gray-200); border-radius: 12px; padding: var(--space-8); background: var(--bg-surface); text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
@@ -80,7 +80,8 @@ if ($userRol === 'alumno'):
           <p style="color: var(--gray-500); font-size: var(--text-sm); max-width: 420px; margin: 0 auto; line-height: 1.5;">
             No tienes materias inscritas ni estás asignado a ningún grupo para el ciclo escolar activo
             <strong><?= htmlspecialchars($_SESSION['ciclo_activo'] ?? '') ?></strong>. Comunícate con el área escolar o con
-            tu Administrador para tu asignación.</p>
+            tu Administrador para tu asignación.
+          </p>
         </div>
       </div>
     <?php else: ?>
@@ -109,7 +110,8 @@ if ($userRol === 'alumno'):
                 <h2
                   style="font-size: var(--text-lg); font-weight: 700; color: var(--primary-800); margin: 0; font-family: var(--font-heading); display: inline-flex; align-items: baseline; gap: var(--space-2);">
                   <?= $groupName ?>
-                  <span style="font-size: var(--text-xs); font-weight: 500; color: var(--gray-500); font-family: var(--font-body);">
+                  <span
+                    style="font-size: var(--text-xs); font-weight: 500; color: var(--gray-500); font-family: var(--font-body);">
                     (<?= htmlspecialchars($g['ciclo'] ?? '') ?>)
                   </span>
                 </h2>
@@ -120,10 +122,9 @@ if ($userRol === 'alumno'):
                   (<?= htmlspecialchars(trim(($g['siglas'] ?? '') . ' ' . ($g['cuatrimestre'] ?? '') . ($g['grupo'] ?? ''))) ?>)
                 </p>
                 <p style="font-size: var(--text-xs); color: var(--gray-500); margin-top: 2px; margin-bottom: 0;">Profesor:
-                  <?= htmlspecialchars($g['docente_nombre'] . " " . $g['docente_apellido']) ?></p>
+                  <?= htmlspecialchars($g['docente_nombre'] . " " . $g['docente_apellido']) ?>
+                </p>
               </div>
-              <span
-                style="background: var(--uts-green); color: white; padding: 4px 12px; border-radius: 20px; font-size: var(--text-xs); font-weight: bold; text-transform: uppercase;">Activa</span>
             </div>
 
             <!-- Parcial Selector & Special Widget -->
@@ -300,18 +301,21 @@ if ($userRol === 'alumno'):
                     <span
                       style="font-size: 11px; color: var(--gray-500); font-weight: 500; margin-bottom: var(--space-3);">Saber
                       (36%)</span>
-                    <?php 
+                    <?php
                     $idOralText = $grades['id_oral_text'] ?? null;
-                    if ($oeGrade === null && $idOralText !== null): 
-                    ?>
-                      <a href="index.php?page=take_oral_exam&id_grupo=<?= $g['id_grupo'] ?>&parcial=<?= $p ?>" class="btn btn-primary btn-sm"
-                        style="width: 100%; text-align: center; border-radius: 20px; font-size: 11px; padding: 4px 8px; font-weight: bold; margin-top: auto;">Ver Examen Oral</a>
+                    if ($oeGrade === null && $idOralText !== null):
+                      ?>
+                      <a href="index.php?page=take_oral_exam&id_grupo=<?= $g['id_grupo'] ?>&parcial=<?= $p ?>"
+                        class="btn btn-primary btn-sm"
+                        style="width: 100%; text-align: center; border-radius: 20px; font-size: 11px; padding: 4px 8px; font-weight: bold; margin-top: auto;">Ver
+                        Examen Oral</a>
                     <?php elseif ($oeGrade !== null): ?>
                       <span
                         style="font-size: 11px; color: #6366f1; font-weight: 600; margin-top: auto; display: flex; align-items: center; gap: 4px;">✓
                         Completado</span>
                     <?php else: ?>
-                      <span style="font-size: 11px; color: var(--gray-400); font-weight: 600; margin-top: auto;">No asignado</span>
+                      <span style="font-size: 11px; color: var(--gray-400); font-weight: 600; margin-top: auto;">No
+                        asignado</span>
                     <?php endif; ?>
                   </div>
 
@@ -341,6 +345,26 @@ if ($userRol === 'alumno'):
                       (12%)</span>
                   </div>
 
+                  <?php
+                  $totalTasks = 0;
+                  $answeredTasks = 0;
+                  if (isset($studentData) && is_array($studentData)) {
+                    foreach ($studentData as $sd) {
+                      foreach ($sd['parciales'] as $pNum => $pData) {
+                        foreach ($pData['hw_list'] ?? [] as $hwItem) {
+                          $isResolvable = (!empty($hwItem['id_topico']) || !empty($hwItem['distribucion_preguntas']));
+                          if ($isResolvable) {
+                            $totalTasks++;
+                            if ($hwItem['calificacion'] !== null) {
+                              $answeredTasks++;
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                  $hasPendingHws = ($answeredTasks < $totalTasks);
+                  ?>
                   <!-- 5. Tareas Card -->
                   <div class="stat-card"
                     style="display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: var(--space-5); border-radius: 12px; border: 1.5px solid var(--border-color); border-top: 4.5px solid #06b6d4; background: var(--bg-surface, #ffffff); box-shadow: var(--shadow-sm); text-align: left; min-height: 180px;">
@@ -360,8 +384,22 @@ if ($userRol === 'alumno'):
                       <?php if ($hwGrade !== null): ?><span
                           style="font-size: 13px; font-weight: 600; color: var(--gray-400); margin-left: 2px;">/10</span><?php endif; ?>
                     </span>
-                    <span style="font-size: 11px; color: var(--gray-500); font-weight: 500; margin-top: auto;">Saber Hacer
-                      (12%)</span>
+                    <span
+                      style="font-size: 11px; color: var(--gray-500); font-weight: 500; margin-bottom: var(--space-2);">Saber
+                      Hacer (12%)</span>
+
+                    <!-- Tareas asignadas button -->
+                    <?php if ($hasPendingHws): ?>
+                      <button class="btn btn-sm" onclick="openStudentHomeworksModal()"
+                        style="margin-top: var(--space-3); border-radius: 20px; font-weight: bold; width: 100%; font-size: 11px; background: #eb5757; color: white; border: 1.5px solid #eb5757; box-shadow: 0 4px 10px rgba(235,87,87,0.2);">
+                        Tareas contestadas <?= $answeredTasks ?>/<?= $totalTasks ?>
+                      </button>
+                    <?php else: ?>
+                      <button class="btn btn-sm" onclick="openStudentHomeworksModal()"
+                        style="margin-top: var(--space-3); border-radius: 20px; font-weight: bold; width: 100%; font-size: 11px; background: var(--uts-green); color: white; border: 1.5px solid var(--uts-green); box-shadow: 0 4px 10px rgba(10,111,81,0.2);">
+                        Tareas contestadas <?= $answeredTasks ?>/<?= $totalTasks ?>
+                      </button>
+                    <?php endif; ?>
                   </div>
 
                   <!-- 6. Calificación Final / Acumulada Card -->
@@ -411,7 +449,76 @@ if ($userRol === 'alumno'):
     <?php endif; ?>
   </div>
 
+  <!-- Modal para Tareas Asignadas (Alumno) -->
+  <div class="modal-overlay" id="modal-student-homeworks">
+    <div class="modal"
+      style="max-width: 500px; text-align: left; padding: var(--space-6); border-radius: 16px; box-shadow: var(--shadow-lg);">
+      <div class="modal-handle"></div>
+      <h3 style="margin-top: 0; margin-bottom: var(--space-3); font-weight: 800; color: var(--primary-800);">Tareas
+        Asignadas</h3>
+
+      <div id="student-homeworks-list"
+        style="display: flex; flex-direction: column; gap: var(--space-3); max-height: 300px; overflow-y: auto;">
+        <?php
+        $allAssignedHws = [];
+        if (isset($studentData) && is_array($studentData)) {
+          foreach ($studentData as $sd) {
+            foreach ($sd['parciales'] as $pNum => $pData) {
+              foreach ($pData['hw_list'] ?? [] as $hwItem) {
+                $allAssignedHws[] = [
+                  'id_actividad' => $hwItem['id_actividad'],
+                  'nombre' => $hwItem['nombre'],
+                  'parcial' => $pNum,
+                  'calificacion' => $hwItem['calificacion'],
+                  'id_topico' => $hwItem['id_topico'],
+                  'distribucion_preguntas' => $hwItem['distribucion_preguntas'] ?? null
+                ];
+              }
+            }
+          }
+        }
+
+        if (empty($allAssignedHws)):
+          ?>
+          <div style="text-align: center; color: var(--gray-400); padding: var(--space-4);">No tienes tareas asignadas.
+          </div>
+        <?php else: ?>
+          <?php foreach ($allAssignedHws as $h): ?>
+            <div
+              style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-3) var(--space-4); background: var(--gray-50); border: 1.5px solid var(--border-color); border-radius: 12px;">
+              <div>
+                <strong
+                  style="display: block; font-size: var(--text-sm); color: var(--gray-800);"><?= htmlspecialchars($h['nombre']) ?></strong>
+                <span style="font-size: 11px; color: var(--gray-500); font-weight: 600;">Parcial <?= $h['parcial'] ?></span>
+              </div>
+              <div>
+                <?php if ($h['calificacion'] !== null): ?>
+                  <span
+                    style="font-weight: 800; color: var(--uts-green); font-size: var(--text-sm);"><?= number_format($h['calificacion'], 1) ?></span>
+                <?php elseif ($h['id_topico'] || !empty($h['distribucion_preguntas'])): ?>
+                  <a href="index.php?page=take_homework&id_actividad=<?= $h['id_actividad'] ?>" class="btn btn-primary btn-sm"
+                    style="border-radius: 12px; font-size: 11px; font-weight: bold; padding: var(--space-1) var(--space-3);">Resolver</a>
+                <?php else: ?>
+                  <span style="font-size: var(--text-xs); color: var(--gray-400); font-weight: 600;">Captura Manual</span>
+                <?php endif; ?>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </div>
+
+      <div style="margin-top: var(--space-5); text-align: right;">
+        <button class="btn btn-outline btn-sm" onclick="closeModal('modal-student-homeworks')"
+          style="border-radius: 20px;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    function openStudentHomeworksModal() {
+      document.getElementById('modal-student-homeworks').classList.add('active');
+    }
+
     function switchStudentParcial(groupIndex, parcial) {
       // Hide all contents for this group
       document.querySelectorAll('.parcial-content-' + groupIndex).forEach(el => el.style.display = 'none');
@@ -463,7 +570,8 @@ if ($userRol === 'alumno'):
   <!-- Grupos Grid -->
   <?php if (count($grupos) > 0): ?>
     <h3 style="margin-bottom: var(--space-4); margin-top: var(--space-6);">
-      <?= $userRol === 'admin' ? 'Grupos' : 'Mis grupos' ?></h3>
+      <?= $userRol === 'admin' ? 'Grupos' : 'Mis grupos' ?>
+    </h3>
     <div class="group-grid" style="margin-bottom: var(--space-6);">
       <?php
       $cardColors = [
@@ -564,7 +672,4 @@ if ($userRol === 'alumno'):
       <div class="stat-label">Aprobados / Reprobados</div>
     </div>
   </div>
-
-
-  </script>
 <?php endif; ?>

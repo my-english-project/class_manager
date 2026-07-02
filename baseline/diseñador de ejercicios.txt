@@ -1,0 +1,15 @@
+Diseñador de tareas y exámenes.
+Se trata de un módulo que permitirá al docente crear tareas y exámenes para sus alumnos.
+Estos se deben poder preparar dentro de la misma aplicación de manera similar a los examenes orales.
+- Primero deberá haber una sección adicional para poder preparar los examenes y tareas llamada Quiz lab.
+- En esta sección deberá de haber mostrar una sección en pestañas con Tareas, Exámen Escrito y Exámen Oral, en cada una de ellas de deberá mostrar la opción para crear cada una de ellas.
+- En la pestaña Tareas, habrá una opción para crear/agregar una nueva tarea, pedir al usuario el tópico/nombre de la tarea/asignación, luego pedir el tipo de ejercicios que pueden ser:
+1. Multiple choice
+2. Wordo ordering
+3. Error identification
+4. Theoretical
+Y a continuación deberá pedir en una caja de texto, la redacción de las preguntas numeradas 1. 2. 3., etc. y las opciones numeradas como a. b. c., revisa y usa las tablas pregunta, seccion, topico y opcion en la BD para este fin, diseña nuevas tablas o campos de ser necesario.
+- Ya existe una funcionalidad para habilitar exámenes en la sección Ex. escrito, esta debe funcionar igual, solo debe de mostrar todos los tópicos existentes para poder generar un nuevo examen y asignarlo a los alumnos.
+- De igual forma, se debe de habilitar una función similar en la sección Tareas para de igual forma seleccionar el tópico de la tarea, este de igual manera se autocalifica y asigna la calificación en automático de la tarea, la diferencia es que el examen solo permite una asignación por parcial y las tareas pueden ser varias por parcial, cada una se califica independiente y la función existente de promedio por parcial sigue funcionando igual. No debe de existir límite de tiempo para la resolución de las tareas.
+
+

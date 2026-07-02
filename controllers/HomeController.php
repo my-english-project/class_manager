@@ -74,6 +74,17 @@ class HomeController
                     ");
                     $stmtHW->execute([':gid' => $gid, ':aid' => $alumnoId, ':p' => $p]);
                     $hw = $stmtHW->fetchColumn();
+
+                    // 4.1 Detailed homework tasks for resolver option
+                    $stmtHWList = $db->prepare("
+                        SELECT a.id_actividad, a.nombre, a.id_topico, a.distribucion_preguntas, ca.calificacion 
+                        FROM actividad a 
+                        LEFT JOIN calificacion_actividad ca ON a.id_actividad = ca.id_actividad AND ca.id_alumno = :aid
+                        WHERE a.id_grupo = :gid AND a.tipo = 'tarea' AND a.parcial = :p
+                        ORDER BY a.orden
+                    ");
+                    $stmtHWList->execute([':gid' => $gid, ':aid' => $alumnoId, ':p' => $p]);
+                    $hwList = $stmtHWList->fetchAll();
                     
                     // 5. Asistencias percentage and totals
                     $stmtAtt = $db->prepare("
@@ -98,6 +109,7 @@ class HomeController
                         'id_oral_text' => $idOralText,
                         'pf' => $pf !== null ? round((float)$pf, 2) : null,
                         'hw' => $hw !== null ? round((float)$hw, 2) : null,
+                        'hw_list' => $hwList,
                         'att_present' => $att ? (float)$att['present'] : 0,
                         'att_total' => $att ? (int)$att['total'] : 0,
                         'exam_generated' => $isGenerated,

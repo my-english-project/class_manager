@@ -15,6 +15,128 @@ class CalificacionController
         $db = Database::getConnection();
         $grupoActivo = $_SESSION['grupo_activo'] ?? null;
         
+        if ($page === 'take_homework') {
+            $actId = (int)($_GET['id_actividad'] ?? 0);
+            $stmtAct = $db->prepare("SELECT * FROM actividad WHERE id_actividad = :aid LIMIT 1");
+            $stmtAct->execute([':aid' => $actId]);
+            $act = $stmtAct->fetch();
+            
+            $questions = [];
+            if ($act) {
+                if (!empty($act['distribucion_preguntas'])) {
+                    $dist = json_decode($act['distribucion_preguntas'], true);
+                    if (is_array($dist)) {
+                        foreach ($dist as $tid => $qty) {
+                            $stmtSections = $db->prepare("SELECT id_seccion FROM seccion WHERE id_topico = :tid ORDER BY letra");
+                            $stmtSections->execute([':tid' => (int)$tid]);
+                            $sections = $stmtSections->fetchAll();
+
+                            if (empty($sections)) continue;
+
+                            $limitTopic = (int)$qty;
+                            $sectionsCount = count($sections);
+                            $limitPerSection = (int)ceil($limitTopic / max(1, $sectionsCount));
+
+                            $alumnoId = (int)($_SESSION['alumno']['id_alumno'] ?? 0);
+                            
+                            // Fetch historically answered question IDs for this topic by this student
+                            $stmtHistory = $db->prepare("
+                                SELECT ca.preguntas_respondidas 
+                                FROM calificacion_actividad ca
+                                INNER JOIN actividad a ON ca.id_actividad = a.id_actividad
+                                WHERE ca.id_alumno = :alu AND a.tipo = 'tarea' AND a.id_topico = :tid AND ca.preguntas_respondidas IS NOT NULL
+                            ");
+                            $stmtHistory->execute([':alu' => $alumnoId, ':tid' => (int)$tid]);
+                            $historyRecords = $stmtHistory->fetchAll(PDO::FETCH_COLUMN);
+                            
+                            $excludedQuestionIds = [];
+                            foreach ($historyRecords as $record) {
+                                $arr = json_decode($record, true);
+                                if (is_array($arr)) {
+                                    foreach ($arr as $qid) {
+                                        $excludedQuestionIds[] = (int)$qid;
+                                    }
+                                }
+                            }
+                            $excludedQuestionIds = array_unique($excludedQuestionIds);
+
+                            $questionsTopic = [];
+                            foreach ($sections as $sec) {
+                                $notInSql = '';
+                                if (!empty($excludedQuestionIds)) {
+                                    $notInSql = "AND p.id_pregunta NOT IN (" . implode(',', $excludedQuestionIds) . ")";
+                                }
+
+                                $stmt = $db->prepare("
+                                    SELECT p.*, s.nombre AS seccion_nombre, s.letra AS seccion_letra, s.id_topico
+                                    FROM pregunta p
+                                    INNER JOIN seccion s ON p.id_seccion = s.id_seccion
+                                    WHERE s.id_seccion = :sid $notInSql
+                                    ORDER BY RAND()
+                                    LIMIT :lim
+                                ");
+                                $stmt->bindValue(':sid', $sec['id_seccion'], PDO::PARAM_INT);
+                                $stmt->bindValue(':lim', $limitPerSection, PDO::PARAM_INT);
+                                $stmt->execute();
+                                $fetchedQs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                                // Fallback: if there are not enough remaining questions to satisfy the limit, reuse some from the topic
+                                if (count($fetchedQs) < $limitPerSection) {
+                                    $missing = $limitPerSection - count($fetchedQs);
+                                    $excludePlaceholders = '';
+                                    if (!empty($fetchedQs)) {
+                                        $alreadyFetched = array_column($fetchedQs, 'id_pregunta');
+                                        $excludePlaceholders = "AND p.id_pregunta NOT IN (" . implode(',', $alreadyFetched) . ")";
+                                    }
+                                    
+                                    $stmtFallback = $db->prepare("
+                                        SELECT p.*, s.nombre AS seccion_nombre, s.letra AS seccion_letra, s.id_topico
+                                        FROM pregunta p
+                                        INNER JOIN seccion s ON p.id_seccion = s.id_seccion
+                                        WHERE s.id_seccion = :sid $excludePlaceholders
+                                        ORDER BY RAND()
+                                        LIMIT :lim
+                                    ");
+                                    $stmtFallback->bindValue(':sid', $sec['id_seccion'], PDO::PARAM_INT);
+                                    $stmtFallback->bindValue(':lim', $missing, PDO::PARAM_INT);
+                                    $stmtFallback->execute();
+                                    $fetchedQs = array_merge($fetchedQs, $stmtFallback->fetchAll(PDO::FETCH_ASSOC));
+                                }
+
+                                $questionsTopic = array_merge($questionsTopic, $fetchedQs);
+                            }
+                            shuffle($questionsTopic);
+                            $questionsTopic = array_slice($questionsTopic, 0, $limitTopic);
+                            $questions = array_merge($questions, $questionsTopic);
+                        }
+                        shuffle($questions);
+                    }
+                } elseif ($act['id_topico']) {
+                    $stmtQ = $db->prepare("
+                        SELECT p.*, s.nombre AS seccion_nombre, s.letra AS seccion_letra, s.id_topico
+                        FROM pregunta p
+                        INNER JOIN seccion s ON p.id_seccion = s.id_seccion
+                        WHERE s.id_topico = :tid
+                        ORDER BY p.id_pregunta
+                    ");
+                    $stmtQ->execute([':tid' => $act['id_topico']]);
+                    $questions = $stmtQ->fetchAll();
+                }
+
+                foreach ($questions as &$q) {
+                    $stmtO = $db->prepare("SELECT * FROM opcion WHERE id_pregunta = :qid ORDER BY letra");
+                    $stmtO->execute([':qid' => $q['id_pregunta']]);
+                    $q['opciones'] = $stmtO->fetchAll();
+                }
+                unset($q);
+            }
+            
+            return [
+                'actividad' => $act ?: null,
+                'questions' => $questions
+            ];
+        }
+
         if ($page === 'take_oral_exam') {
             $alumnoId = $_SESSION['alumno']['id_alumno'] ?? 0;
             $parcial = (int)($_GET['parcial'] ?? 0);
@@ -75,8 +197,15 @@ class CalificacionController
                 
                 $data['examConfigs'] = $configs;
                 
-                // Fetch topics
-                $data['topics'] = $db->query("SELECT * FROM topico ORDER BY id_topico")->fetchAll();
+                // Fetch topics with question counts
+                $data['topics'] = $db->query("
+                    SELECT t.id_topico, t.nombre, COUNT(p.id_pregunta) AS total_preguntas
+                    FROM topico t
+                    LEFT JOIN seccion s ON t.id_topico = s.id_topico
+                    LEFT JOIN pregunta p ON s.id_seccion = p.id_seccion
+                    GROUP BY t.id_topico, t.nombre
+                    ORDER BY t.id_topico ASC
+                ")->fetchAll();
 
                 // Fetch other groups of this teacher for publishing options
                 $stmtGrupos = $db->prepare("SELECT id_grupo, siglas, cuatrimestre, grupo FROM grupo WHERE id_docente = :did AND ciclo = :ciclo AND activo = 1 ORDER BY siglas, cuatrimestre, grupo");
@@ -161,7 +290,36 @@ class CalificacionController
             case 'homework':
                 $data['activities'] = $this->getActivities($db, $grupoId, 'tarea');
                 $data['activityGrades'] = $this->getActivityGrades($db, $grupoId, 'tarea');
+                $data['topics'] = $db->query("
+                    SELECT t.id_topico, t.nombre, COUNT(p.id_pregunta) AS total_preguntas
+                    FROM topico t
+                    LEFT JOIN seccion s ON t.id_topico = s.id_topico
+                    LEFT JOIN pregunta p ON s.id_seccion = p.id_seccion
+                    GROUP BY t.id_topico, t.nombre
+                    ORDER BY t.id_topico DESC
+                ")->fetchAll();
+                
+                $stmtGrupos = $db->prepare("SELECT id_grupo, siglas, cuatrimestre, grupo FROM grupo WHERE id_docente = :did AND ciclo = :ciclo AND activo = 1 ORDER BY siglas, cuatrimestre, grupo");
+                $stmtGrupos->execute([':did' => $_SESSION['docente']['id_docente'] ?? 0, ':ciclo' => $_SESSION['ciclo_activo']]);
+                $data['docenteGrupos'] = $stmtGrupos->fetchAll();
                 break;
+            case 'quiz_lab':
+                $data['topics'] = $db->query("
+                    SELECT t.id_topico, t.nombre, COUNT(p.id_pregunta) AS total_preguntas
+                    FROM topico t
+                    LEFT JOIN seccion s ON t.id_topico = s.id_topico
+                    LEFT JOIN pregunta p ON s.id_seccion = p.id_seccion
+                    GROUP BY t.id_topico, t.nombre
+                    ORDER BY t.id_topico DESC
+                ")->fetchAll();
+                $data['activities'] = $db->query("SELECT * FROM actividad WHERE id_grupo = {$grupoId} AND tipo = 'tarea' ORDER BY parcial, orden")->fetchAll();
+                $data['oral_topics'] = $db->query("SELECT * FROM examen_oral_tema ORDER BY id_oral_topic DESC")->fetchAll();
+                
+                $stmtGrupos = $db->prepare("SELECT id_grupo, siglas, cuatrimestre, grupo FROM grupo WHERE id_docente = :did AND ciclo = :ciclo AND activo = 1 ORDER BY siglas, cuatrimestre, grupo");
+                $stmtGrupos->execute([':did' => $_SESSION['docente']['id_docente'] ?? 0, ':ciclo' => $_SESSION['ciclo_activo']]);
+                $data['docenteGrupos'] = $stmtGrupos->fetchAll();
+                break;
+
             case 'exam':
             case 'sito':
                 $data['examSummary'] = $this->getExamSummary($db, $grupoId, $alumnos);
@@ -534,6 +692,21 @@ class CalificacionController
         $parcial = (int)($_POST['parcial'] ?? 1);
 
         $idActividad = (int)($_POST['id_actividad'] ?? 0);
+        
+        $distribucion = $_POST['distribucion'] ?? [];
+        $sanitizedDist = [];
+        $primaryTopicId = null;
+        foreach ($distribucion as $tid => $qty) {
+            $qtyVal = (int)$qty;
+            if ($qtyVal > 0) {
+                $sanitizedDist[(int)$tid] = $qtyVal;
+                if ($primaryTopicId === null) {
+                    $primaryTopicId = (int)$tid;
+                }
+            }
+        }
+        $distJson = !empty($sanitizedDist) ? json_encode($sanitizedDist) : null;
+        $targetGroups = $_POST['target_groups'] ?? [$grupoId];
 
         if (empty($nombre) || !in_array($tipo, ['portafolio', 'tarea'])) {
             return ['success' => false, 'message' => 'Nombre y tipo de actividad son obligatorios.'];
@@ -542,29 +715,51 @@ class CalificacionController
         try {
             if ($idActividad > 0) {
                 // Update
-                $stmt = $db->prepare("UPDATE actividad SET nombre = :nombre, parcial = :parcial WHERE id_actividad = :aid");
-                $stmt->execute([':nombre' => $nombre, ':parcial' => $parcial, ':aid' => $idActividad]);
+                $stmt = $db->prepare("
+                    UPDATE actividad 
+                    SET nombre = :nombre, parcial = :parcial, id_topico = :tid, distribucion_preguntas = :dist 
+                    WHERE id_actividad = :aid
+                ");
+                $stmt->execute([
+                    ':nombre' => $nombre, 
+                    ':parcial' => $parcial, 
+                    ':tid' => $primaryTopicId,
+                    ':dist' => $distJson,
+                    ':aid' => $idActividad
+                ]);
                 return ['success' => true, 'message' => 'Actividad modificada correctamente.'];
             }
 
-            // Get next order number
+            // Insert for each target group
+            $db->beginTransaction();
+            
             $stmtOrder = $db->prepare("
                 SELECT COALESCE(MAX(orden), 0) + 1 as next_orden
                 FROM actividad WHERE id_grupo = :gid AND tipo = :tipo AND parcial = :p
             ");
-            $stmtOrder->execute([':gid' => $grupoId, ':tipo' => $tipo, ':p' => $parcial]);
-            $nextOrden = $stmtOrder->fetch()['next_orden'];
-
-            $stmt = $db->prepare("
-                INSERT INTO actividad (id_grupo, tipo, parcial, nombre, orden)
-                VALUES (:gid, :tipo, :p, :nombre, :orden)
+            
+            $stmtInsert = $db->prepare("
+                INSERT INTO actividad (id_grupo, tipo, parcial, nombre, orden, id_topico, distribucion_preguntas)
+                VALUES (:gid, :tipo, :p, :nombre, :orden, :tid, :dist)
             ");
-            $stmt->execute([
-                ':gid' => $grupoId, ':tipo' => $tipo, ':p' => $parcial,
-                ':nombre' => $nombre, ':orden' => $nextOrden,
-            ]);
 
-            return ['success' => true, 'message' => 'Actividad creada correctamente.', 'id' => $db->lastInsertId()];
+            foreach ($targetGroups as $gId) {
+                $stmtOrder->execute([':gid' => (int)$gId, ':tipo' => $tipo, ':p' => $parcial]);
+                $nextOrden = $stmtOrder->fetch()['next_orden'];
+                
+                $stmtInsert->execute([
+                    ':gid' => (int)$gId,
+                    ':tipo' => $tipo,
+                    ':p' => $parcial,
+                    ':nombre' => $nombre,
+                    ':orden' => $nextOrden,
+                    ':tid' => $primaryTopicId,
+                    ':dist' => $distJson
+                ]);
+            }
+
+            $db->commit();
+            return ['success' => true, 'message' => 'Actividad creada correctamente.'];
         } catch (PDOException $e) {
             return ['success' => false, 'message' => 'Error: ' . $e->getMessage()];
         }
@@ -908,9 +1103,6 @@ class CalificacionController
         }
     }
 
-    /**
-     * Save an oral exam grade from the review page (AJAX).
-     */
     public function saveOralGrade(): array
     {
         if (empty($_SESSION['logged_in']) || !in_array($_SESSION['usuario']['rol'] ?? '', ['docente', 'admin'])) {
@@ -950,6 +1142,423 @@ class CalificacionController
             return ['success' => true, 'message' => 'Calificación de examen oral guardada correctamente.'];
         } catch (PDOException $e) {
             return ['success' => false, 'message' => 'Error al guardar calificación: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Retrieve all questions of a topic in JSON format (AJAX).
+     */
+    public function getTopicQuestions(): array
+    {
+        if (empty($_SESSION['logged_in']) || !in_array($_SESSION['usuario']['rol'] ?? '', ['docente', 'admin'])) {
+            return ['success' => false, 'message' => 'No autorizado.'];
+        }
+
+        $idTopico = (int)($_GET['id_topico'] ?? 0);
+        if ($idTopico <= 0) {
+            return ['success' => false, 'message' => 'ID de tópico no válido.', 'questions' => []];
+        }
+
+        $db = Database::getConnection();
+        $stmtQ = $db->prepare("
+            SELECT p.id_pregunta, p.texto, s.nombre AS seccion_nombre, s.letra AS seccion_letra
+            FROM pregunta p
+            INNER JOIN seccion s ON p.id_seccion = s.id_seccion
+            WHERE s.id_topico = :tid
+            ORDER BY p.id_pregunta
+        ");
+        $stmtQ->execute([':tid' => $idTopico]);
+        $questions = $stmtQ->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($questions as &$q) {
+            $stmtO = $db->prepare("SELECT letra, texto, es_correcta FROM opcion WHERE id_pregunta = :qid ORDER BY letra");
+            $stmtO->execute([':qid' => $q['id_pregunta']]);
+            $q['opciones'] = $stmtO->fetchAll(PDO::FETCH_ASSOC);
+        }
+        unset($q);
+
+        return [
+            'success' => true,
+            'questions' => $questions
+        ];
+    }
+
+    /**
+     * Save a new topic and process its bulk parsed questions (AJAX).
+     */
+    public function saveQuizLabTopic(): array
+    {
+        if (empty($_SESSION['logged_in']) || !in_array($_SESSION['usuario']['rol'] ?? '', ['docente', 'admin'])) {
+            return ['success' => false, 'message' => 'No autorizado.'];
+        }
+
+        $topicoId = (int)($_POST['id_topico'] ?? 0);
+        $nuevoTopicoNombre = trim($_POST['nuevo_topico_nombre'] ?? '');
+        $tipoEjercicio = trim($_POST['tipo_ejercicio'] ?? 'Multiple choice');
+        $questionsText = trim($_POST['questions_text'] ?? '');
+
+        if ($topicoId === 0 && empty($nuevoTopicoNombre)) {
+            return ['success' => false, 'message' => 'Debes seleccionar un tema existente o ingresar el nombre de uno nuevo.'];
+        }
+        if (empty($questionsText)) {
+            return ['success' => false, 'message' => 'El contenido de las preguntas es obligatorio.'];
+        }
+
+        $db = Database::getConnection();
+
+        try {
+            $db->beginTransaction();
+
+            if ($topicoId === 0) {
+                // Check if topic name already exists
+                $stmtCheck = $db->prepare("SELECT id_topico FROM topico WHERE nombre = :nom LIMIT 1");
+                $stmtCheck->execute([':nom' => $nuevoTopicoNombre]);
+                $existing = $stmtCheck->fetch();
+                if ($existing) {
+                    $topicoId = (int)$existing['id_topico'];
+                } else {
+                    $stmtIns = $db->prepare("INSERT INTO topico (nombre) VALUES (:nom)");
+                    $stmtIns->execute([':nom' => $nuevoTopicoNombre]);
+                    $topicoId = (int)$db->lastInsertId();
+                }
+            }
+
+            // Create or select the section for this type under the topic
+            $stmtSecs = $db->prepare("SELECT id_seccion, letra FROM seccion WHERE id_topico = :tid ORDER BY letra DESC");
+            $stmtSecs->execute([':tid' => $topicoId]);
+            $existingSecs = $stmtSecs->fetchAll();
+
+            $idSeccion = 0;
+            foreach ($existingSecs as $es) {
+                $stmtSecName = $db->prepare("SELECT nombre FROM seccion WHERE id_seccion = :sid");
+                $stmtSecName->execute([':sid' => $es['id_seccion']]);
+                $secName = $stmtSecName->fetchColumn();
+                if (strtolower(trim($secName)) === strtolower($tipoEjercicio)) {
+                    $idSeccion = (int)$es['id_seccion'];
+                    break;
+                }
+            }
+
+            if ($idSeccion === 0) {
+                $nextLetter = 'A';
+                if (!empty($existingSecs)) {
+                    $lastLetter = $existingSecs[0]['letra'];
+                    $nextLetter = chr(ord($lastLetter) + 1);
+                }
+                $stmtInsSec = $db->prepare("INSERT INTO seccion (id_topico, nombre, letra) VALUES (:tid, :nom, :let)");
+                $stmtInsSec->execute([
+                    ':tid' => $topicoId,
+                    ':nom' => $tipoEjercicio,
+                    ':let' => $nextLetter
+                ]);
+                $idSeccion = (int)$db->lastInsertId();
+            }
+
+            // Parse text
+            $lines = explode("\n", $questionsText);
+            $parsedQuestions = [];
+            $currentQuestion = null;
+
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if (empty($line)) continue;
+
+                if (preg_match('/^\s*(\d+)\s*[\.\)]\s*(.+)$/', $line, $qMatches)) {
+                    if ($currentQuestion !== null) {
+                        $parsedQuestions[] = $currentQuestion;
+                    }
+                    $currentQuestion = [
+                        'texto' => trim($qMatches[2]),
+                        'opciones' => []
+                    ];
+                } elseif ($currentQuestion !== null && preg_match('/^\s*(\*?)\s*([a-zA-Z])\s*[\.\)]\s*(\*?)(.+)$/', $line, $oMatches)) {
+                    $isCorrect = (!empty($oMatches[1]) || !empty($oMatches[3])) ? 1 : 0;
+                    $currentQuestion['opciones'][] = [
+                        'letra' => strtoupper($oMatches[2]),
+                        'texto' => trim($oMatches[4]),
+                        'es_correcta' => $isCorrect
+                    ];
+                }
+            }
+            if ($currentQuestion !== null) {
+                $parsedQuestions[] = $currentQuestion;
+            }
+
+            if (empty($parsedQuestions)) {
+                $db->rollBack();
+                return ['success' => false, 'message' => 'No se pudieron procesar las preguntas. Verifica el formato (número al inicio para preguntas y letras para opciones).'];
+            }
+
+            // Find maximum existing question number to avoid collision
+            $stmtMaxNum = $db->query("SELECT MAX(numero) FROM pregunta");
+            $maxNum = (int)$stmtMaxNum->fetchColumn();
+
+            $stmtInsQ = $db->prepare("INSERT INTO pregunta (id_seccion, numero, texto) VALUES (:sid, :num, :txt)");
+            $stmtInsO = $db->prepare("INSERT INTO opcion (id_pregunta, letra, texto, es_correcta) VALUES (:qid, :let, :txt, :corr)");
+
+            $qCount = 0;
+            $oCount = 0;
+            foreach ($parsedQuestions as $pq) {
+                $maxNum++;
+                $stmtInsQ->execute([
+                    ':sid' => $idSeccion,
+                    ':num' => $maxNum,
+                    ':txt' => $pq['texto']
+                ]);
+                $qid = $db->lastInsertId();
+                $qCount++;
+
+                $hasCorrect = false;
+                foreach ($pq['opciones'] as $o) {
+                    if ($o['es_correcta']) $hasCorrect = true;
+                }
+
+                foreach ($pq['opciones'] as $index => $o) {
+                    $isCorrect = $o['es_correcta'];
+                    if (!$hasCorrect && $index === 0) {
+                        $isCorrect = 1;
+                    }
+                    $stmtInsO->execute([
+                        ':qid' => $qid,
+                        ':let' => $o['letra'],
+                        ':txt' => $o['texto'],
+                        ':corr' => $isCorrect
+                    ]);
+                    $oCount++;
+                }
+            }
+
+            $db->commit();
+            return [
+                'success' => true, 
+                'message' => "Se crearon con éxito {$qCount} preguntas y {$oCount} opciones en la sección '{$tipoEjercicio}' del tema."
+            ];
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return ['success' => false, 'message' => 'Error al guardar preguntas: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Save/assign a homework activity with an optional topic connection (AJAX).
+     */
+    public function saveQuizHomework(): array
+    {
+        if (empty($_SESSION['logged_in']) || !in_array($_SESSION['usuario']['rol'] ?? '', ['docente', 'admin'])) {
+            return ['success' => false, 'message' => 'No autorizado.'];
+        }
+
+        $idActividad = (int)($_POST['id_actividad'] ?? 0);
+        $grupoId = (int)($_POST['id_grupo'] ?? 0);
+        $parcial = (int)($_POST['parcial'] ?? 0);
+        $nombre = trim($_POST['nombre'] ?? '');
+        
+        $db = Database::getConnection();
+        
+        $idTopico = null;
+        $distJson = null;
+        
+        $isOnline = isset($_POST['is_online']) && ($_POST['is_online'] === '1' || $_POST['is_online'] === 'on');
+        
+        if ($isOnline) {
+            $topicVal = $_POST['id_topico'] ?? '';
+            if ($topicVal === 'new') {
+                $resTopic = $this->saveQuizLabTopic();
+                if (!$resTopic['success']) {
+                    return $resTopic;
+                }
+                $idTopico = (int)$db->query("SELECT MAX(id_topico) FROM topico")->fetchColumn();
+                
+                // Count questions of new topic
+                $stmtCount = $db->prepare("
+                    SELECT COUNT(p.id_pregunta) 
+                    FROM pregunta p 
+                    INNER JOIN seccion s ON p.id_seccion = s.id_seccion 
+                    WHERE s.id_topico = :tid
+                ");
+                $stmtCount->execute([':tid' => $idTopico]);
+                $qCount = (int)$stmtCount->fetchColumn();
+                
+                $distJson = json_encode([$idTopico => $qCount]);
+            } else {
+                $idTopico = $topicVal !== '' ? (int)$topicVal : null;
+                
+                // Read distribution inputs
+                $distribucion = $_POST['distribucion'] ?? [];
+                $filteredDist = [];
+                foreach ($distribucion as $tid => $qty) {
+                    $qtyVal = (int)$qty;
+                    if ($qtyVal > 0) {
+                        $filteredDist[(int)$tid] = $qtyVal;
+                        if ($idTopico === null) {
+                            $idTopico = (int)$tid;
+                        }
+                    }
+                }
+                if (!empty($filteredDist)) {
+                    $distJson = json_encode($filteredDist);
+                }
+            }
+        }
+
+        if ($grupoId <= 0 || $parcial < 1 || $parcial > 3 || empty($nombre)) {
+            return ['success' => false, 'message' => 'Nombre, grupo y parcial son obligatorios.'];
+        }
+
+        try {
+            if ($idActividad > 0) {
+                $stmt = $db->prepare("
+                    UPDATE actividad 
+                    SET nombre = :nom, id_topico = :tid, distribucion_preguntas = :dist 
+                    WHERE id_actividad = :id
+                ");
+                $stmt->execute([
+                    ':nom' => $nombre,
+                    ':tid' => $idTopico,
+                    ':dist' => $distJson,
+                    ':id' => $idActividad
+                ]);
+                $message = 'Tarea modificada correctamente.';
+            } else {
+                $stmtOrder = $db->prepare("SELECT MAX(orden) FROM actividad WHERE id_grupo = :gid AND tipo = 'tarea' AND parcial = :p");
+                $stmtOrder->execute([':gid' => $grupoId, ':p' => $parcial]);
+                $maxOrder = (int)$stmtOrder->fetchColumn();
+
+                $stmt = $db->prepare("
+                    INSERT INTO actividad (id_grupo, tipo, parcial, nombre, orden, id_topico, distribucion_preguntas) 
+                    VALUES (:gid, 'tarea', :p, :nom, :ord, :tid, :dist)
+                ");
+                $stmt->execute([
+                    ':gid' => $grupoId,
+                    ':p' => $parcial,
+                    ':nom' => $nombre,
+                    ':ord' => $maxOrder + 1,
+                    ':tid' => $idTopico,
+                    ':dist' => $distJson
+                ]);
+                $message = 'Tarea creada y asignada correctamente.';
+            }
+
+            return ['success' => true, 'message' => $message];
+        } catch (PDOException $e) {
+            return ['success' => false, 'message' => 'Error al guardar tarea: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Submit and auto-grade homework (AJAX).
+     */
+    public function submitHomework(): array
+    {
+        if (empty($_SESSION['logged_in']) || !in_array($_SESSION['usuario']['rol'] ?? '', ['alumno', 'docente', 'admin'])) {
+            return ['success' => false, 'message' => 'No autorizado.'];
+        }
+
+        $isTestRun = in_array($_SESSION['usuario']['rol'], ['docente', 'admin']);
+        $alumnoId = $isTestRun ? 0 : (int)($_SESSION['alumno']['id_alumno'] ?? 0);
+        $actividadId = (int)($_POST['id_actividad'] ?? 0);
+        $answers = $_POST['answers'] ?? [];
+
+        if ($actividadId <= 0) {
+            return ['success' => false, 'message' => 'Datos de tarea no válidos.'];
+        }
+        if (!$isTestRun && $alumnoId <= 0) {
+            return ['success' => false, 'message' => 'Alumno no identificado.'];
+        }
+
+        $db = Database::getConnection();
+
+        try {
+            $stmtAct = $db->prepare("SELECT id_topico, nombre, distribucion_preguntas FROM actividad WHERE id_actividad = :aid AND tipo = 'tarea' LIMIT 1");
+            $stmtAct->execute([':aid' => $actividadId]);
+            $actividad = $stmtAct->fetch();
+
+            if (!$actividad || (!$actividad['id_topico'] && empty($actividad['distribucion_preguntas']))) {
+                return ['success' => false, 'message' => 'La tarea no tiene preguntas asociadas.'];
+            }
+
+            $idTopico = (int)$actividad['id_topico'];
+
+            if (!$isTestRun) {
+                $stmtCheck = $db->prepare("SELECT id_calificacion_actividad FROM calificacion_actividad WHERE id_actividad = :aid AND id_alumno = :alu LIMIT 1");
+                $stmtCheck->execute([':aid' => $actividadId, ':alu' => $alumnoId]);
+                if ($stmtCheck->fetch()) {
+                    return ['success' => false, 'message' => 'Ya has presentado esta tarea anteriormente.'];
+                }
+            }
+
+            $totalQuestions = 0;
+            if (!empty($actividad['distribucion_preguntas'])) {
+                $dist = json_decode($actividad['distribucion_preguntas'], true);
+                if (is_array($dist)) {
+                    $totalQuestions = array_sum($dist);
+                }
+            }
+            if ($totalQuestions <= 0 && $idTopico > 0) {
+                $stmtCount = $db->prepare("
+                    SELECT COUNT(p.id_pregunta) 
+                    FROM pregunta p 
+                    INNER JOIN seccion s ON p.id_seccion = s.id_seccion 
+                    WHERE s.id_topico = :tid
+                ");
+                $stmtCount->execute([':tid' => $idTopico]);
+                $totalQuestions = (int)$stmtCount->fetchColumn();
+            }
+            if ($totalQuestions <= 0) {
+                $totalQuestions = max(1, count($answers));
+            }
+
+            $correctCount = 0;
+            if (!empty($answers)) {
+                $questionIds = array_map('intval', array_keys($answers));
+                $placeholders = implode(',', array_fill(0, count($questionIds), '?'));
+                
+                $stmtCorrect = $db->prepare("
+                    SELECT id_pregunta, id_opcion 
+                    FROM opcion 
+                    WHERE id_pregunta IN ($placeholders) AND es_correcta = 1
+                ");
+                $stmtCorrect->execute($questionIds);
+                $correctAnswers = $stmtCorrect->fetchAll(PDO::FETCH_KEY_PAIR);
+
+                foreach ($answers as $qId => $optId) {
+                    $qId = (int)$qId;
+                    $optId = (int)$optId;
+                    if (isset($correctAnswers[$qId]) && (int)$correctAnswers[$qId] === $optId) {
+                        $correctCount++;
+                    }
+                }
+            }
+
+            $grade = round(($correctCount / $totalQuestions) * 10, 2);
+
+            if (!$isTestRun) {
+                $answeredIdsJson = json_encode($questionIds);
+                $stmtSave = $db->prepare("
+                    INSERT INTO calificacion_actividad (id_actividad, id_alumno, calificacion, preguntas_respondidas)
+                    VALUES (:aid, :alu, :cal, :pr)
+                    ON DUPLICATE KEY UPDATE calificacion = VALUES(calificacion), preguntas_respondidas = VALUES(preguntas_respondidas), updated_at = NOW()
+                ");
+                $stmtSave->execute([
+                    ':aid' => $actividadId,
+                    ':alu' => $alumnoId,
+                    ':cal' => $grade,
+                    ':pr' => $answeredIdsJson
+                ]);
+            }
+
+            return [
+                'success' => true,
+                'message' => $isTestRun ? 'Tarea calificada con éxito (Prueba de Docente).' : 'Tarea guardada y calificada con éxito.',
+                'score' => $correctCount,
+                'total' => $totalQuestions,
+                'grade' => $grade
+            ];
+
+        } catch (PDOException $e) {
+            return ['success' => false, 'message' => 'Error al calificar tarea: ' . $e->getMessage()];
         }
     }
 }

@@ -17,12 +17,14 @@ function routePage(string $page): void
         'home', 'alumnos', 'attendance', 'maestros',
         'write_exam', 'oral_exam', 'portfolio', 'homework',
         'exam', 'sito', 'sesiones', 'take_written_exam',
-        'periodos', 'grupos_admin', 'materias', 'take_oral_exam', 'oral_exam_review'
+        'periodos', 'grupos_admin', 'materias', 'take_oral_exam', 'oral_exam_review',
+        'quiz_lab', 'take_homework'
     ];
 
     $requiresGroup = [
         'attendance', 'write_exam', 'oral_exam', 
-        'portfolio', 'homework', 'exam', 'sito', 'sesiones', 'oral_exam_review'
+        'portfolio', 'homework', 'exam', 'sito', 'sesiones', 'oral_exam_review',
+        'quiz_lab'
     ];
 
     // Redirect to login if not authenticated and trying to access a protected page
@@ -32,7 +34,7 @@ function routePage(string $page): void
     }
 
     // Role Guard: Students cannot access protected pages (only teachers/admin), except home and take_written_exam
-    $studentAllowed = ['home', 'take_written_exam', 'take_oral_exam'];
+    $studentAllowed = ['home', 'take_written_exam', 'take_oral_exam', 'take_homework'];
     if (in_array($page, $protectedPages) && !in_array($page, $studentAllowed) && ($_SESSION['usuario']['rol'] ?? '') === 'alumno') {
         header('Location: index.php?page=home');
         exit;
@@ -118,6 +120,8 @@ function loadControllerData(string $page): array
         'consulta'        => 'ConsultaController',
         'maestros'        => 'DocenteController',
         'materias'        => 'MateriaController',
+        'quiz_lab'        => 'CalificacionController',
+        'take_homework'   => 'CalificacionController',
     ];
 
     if (isset($controllerMap[$page])) {
@@ -162,6 +166,7 @@ function handleAction(string $action): void
         // Alumnos
         'save_alumno'        => ['AlumnoController', 'save'],
         'delete_alumno'      => ['AlumnoController', 'delete'],
+        'reset_alumno_password' => ['AlumnoController', 'resetPassword'],
         // Sesiones
         'save_sesion'        => ['SesionController', 'save'],
         'delete_sesion'      => ['SesionController', 'delete'],
@@ -180,6 +185,11 @@ function handleAction(string $action): void
         'save_oral_grade'    => ['CalificacionController', 'saveOralGrade'],
         // Consulta
         'consulta_search'    => ['ConsultaController', 'search'],
+        // Quiz Lab & Homeworks
+        'get_topic_questions' => ['CalificacionController', 'getTopicQuestions'],
+        'save_quiz_lab_topic' => ['CalificacionController', 'saveQuizLabTopic'],
+        'save_quiz_homework'  => ['CalificacionController', 'saveQuizHomework'],
+        'submit_homework'     => ['CalificacionController', 'submitHomework'],
     ];
 
     if (!isset($actionMap[$action])) {

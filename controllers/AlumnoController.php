@@ -184,4 +184,62 @@ class AlumnoController
             return ['success' => false, 'message' => 'Error al eliminar: ' . $e->getMessage()];
         }
     }
+
+    /**
+     * Reset student's password to their matricula (hashed).
+     */
+    public function resetPassword(): array
+    {
+        if (($_SESSION['usuario']['rol'] ?? '') !== 'admin') {
+            return ['success' => false, 'message' => 'No autorizado.'];
+        }
+
+        $idAlumno = (int)($_POST['id_alumno'] ?? 0);
+        if ($idAlumno <= 0) {
+            return ['success' => false, 'message' => 'ID de alumno no válido.'];
+        }
+
+        $db = Database::getConnection();
+
+        try {
+            // Get student matricula
+            $stmt = $db->prepare("SELECT matricula FROM alumno WHERE id_alumno = :aid LIMIT 1");
+            $stmt->execute([':aid' => $idAlumno]);
+            $alumno = $stmt->fetch();
+
+            if (!$alumno) {
+                return ['success' => false, 'message' => 'Alumno no encontrado.'];
+            }
+
+            $matricula = $alumno['matricula'];
+            $passwordHash = password_hash($matricula, PASSWORD_DEFAULT);
+
+            // Check if user already exists
+            $stmtUser = $db->prepare("SELECT id_usuario FROM usuario WHERE id_referencia = :aid AND rol = 'alumno' LIMIT 1");
+            $stmtUser->execute([':aid' => $idAlumno]);
+            $existingUser = $stmtUser->fetch();
+
+            if ($existingUser) {
+                // Update existing user password and make sure username is the matricula
+                $stmtUpdate = $db->prepare("UPDATE usuario SET password = :pass, username = :username WHERE id_usuario = :uid");
+                $stmtUpdate->execute([
+                    ':pass' => $passwordHash,
+                    ':username' => $matricula,
+                    ':uid' => $existingUser['id_usuario']
+                ]);
+            } else {
+                // Create new user record
+                $stmtInsert = $db->prepare("INSERT INTO usuario (username, password, rol, id_referencia) VALUES (:username, :pass, 'alumno', :aid)");
+                $stmtInsert->execute([
+                    ':username' => $matricula,
+                    ':pass' => $passwordHash,
+                    ':aid' => $idAlumno
+                ]);
+            }
+
+            return ['success' => true, 'message' => 'Contraseña restablecida con éxito a la matrícula del alumno.'];
+        } catch (PDOException $e) {
+            return ['success' => false, 'message' => 'Error al restablecer contraseña: ' . $e->getMessage()];
+        }
+    }
 }
